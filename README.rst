@@ -2,10 +2,6 @@
 IDIS send
 =========
 
-
-.. image:: https://img.shields.io/pypi/v/idissend.svg
-        :target: https://pypi.python.org/pypi/idissend
-
 .. image:: https://img.shields.io/travis/sjoerdk/idissend.svg
         :target: https://travis-ci.org/sjoerdk/idissend
 

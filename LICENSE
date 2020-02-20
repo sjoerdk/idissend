@@ -1,7 +1,7 @@
 GNU GENERAL PUBLIC LICENSE
                       Version 3, 29 June 2007
 
-    Automate sendingfiles from disk to IDIS anonymization server
+    Automate sending incoming files to IDIS anonymization server
     Copyright (C) 2020  Sjoerd Kerkstra
 
     This program is free software: you can redistribute it and/or modify

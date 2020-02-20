@@ -2,12 +2,17 @@
 IDIS send
 =========
 
-.. image:: https://img.shields.io/travis/sjoerdk/idissend.svg
-        :target: https://travis-ci.org/sjoerdk/idissend
+.. image:: https://github.com/sjoerdk/idissend/workflows/build/badge.svg
+        :target: https://github.com/sjoerdk/idissend/actions?query=workflow%3Abuild
+        :alt: Build Status
 
-.. image:: https://readthedocs.org/projects/idis-send/badge/?version=latest
-        :target: https://idis-send.readthedocs.io/en/latest/?badge=latest
+.. image:: https://img.shields.io/pypi/v/idissend.svg
+        :target: https://pypi.python.org/pypi/idissend
+
+.. image:: https://readthedocs.org/projects/idissend/badge/?version=latest
+        :target: https://idissend.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
+
 
 .. image:: https://pyup.io/repos/github/sjoerdk/idissend/shield.svg
      :target: https://pyup.io/repos/github/sjoerdk/idissend/
@@ -17,8 +22,9 @@ IDIS send
 
 Automate sending incoming files to IDIS anonymization server
 
+
 * Free software: GNU General Public License v3
-* Documentation: https://idis-send.readthedocs.io.
+* Documentation: https://idissend.readthedocs.io.
 
 
 Features

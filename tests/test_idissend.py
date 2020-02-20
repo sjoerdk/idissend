@@ -2,37 +2,63 @@
 # -*- coding: utf-8 -*-
 
 """Tests for `idissend` package."""
+from pathlib import Path
 
 import pytest
-
-from click.testing import CliRunner
+import shutil
 
 from idissend import idissend
-from idissend import cli
+from idissend.idissend import IncomingFolder, Stream, Person
+from tests import RESOURCE_PATH
 
 
 @pytest.fixture
-def response():
-    """Sample pytest fixture.
+def an_input_folder(tmpdir) -> Path:
+    """A folder with some DICOM files in <stream>/<study> structure"""
 
-    See more at: http://doc.pytest.org/en/latest/fixture.html
-    """
-    # import requests
-    # return requests.get('https://github.com/audreyr/cookiecutter-pypackage')
-
-
-def test_content(response):
-    """Sample pytest test function with the pytest fixture as an argument."""
-    # from bs4 import BeautifulSoup
-    # assert 'GitHub' in BeautifulSoup(response.content).title.string
+    copy_of_folder = Path(str(tmpdir)) / "an_input_folder"
+    shutil.copytree(RESOURCE_PATH / "an_input_folder", copy_of_folder)
+    return copy_of_folder
 
 
-def test_command_line_interface():
-    """Test the CLI."""
-    runner = CliRunner()
-    result = runner.invoke(cli.main)
-    assert result.exit_code == 0
-    assert 'idissend.cli.main' in result.output
-    help_result = runner.invoke(cli.main, ['--help'])
-    assert help_result.exit_code == 0
-    assert '--help  Show this message and exit.' in help_result.output
+@pytest.fixture
+def some_streams():
+    """Some streams, some of which have some data in an_input_folder()"""
+    jessie = Person("Jessie Admin", email="j.admin@localhost.com")
+    rachel = Person("Rachel Search", email="r.search@localhost.com")
+    jack = Person("Jack Serious", email="j.serious@localhost.com")
+    return [
+        Stream(
+            name="project1",
+            output_folder=Path("test_output_project1"),
+            idis_project="Wetenschap-Algemeen",
+            pims_key="1234",
+            contact=jessie,
+        ),
+        Stream(
+            name="project2",
+            output_folder=Path("test_output_project2"),
+            idis_project="Wetenschap-Algemeen",
+            pims_key="4444",
+            contact=rachel,
+        ),
+        Stream(
+            name="project3",
+            output_folder=Path("test_output_project3"),
+            idis_project="Wetenschap-Algemeen",
+            pims_key="5555",
+            contact=jack,
+        ),
+    ]
+
+
+def test_incoming_folder(an_input_folder, some_streams):
+    folder = IncomingFolder(path=an_input_folder, streams=some_streams)
+    studies = folder.get_studies()
+
+    assert len(studies) == 3
+    assert 'project1' in [x.stream.name for x in studies]
+    assert 'project2' in [x.stream.name for x in studies]
+
+
+# TODO test cooldown, implement pending anon, implement trash, implement control

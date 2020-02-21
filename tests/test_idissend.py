@@ -9,7 +9,14 @@ import pytest
 import shutil
 
 from idissend import idissend
-from idissend.idissend import Incoming, Stream, Person, AgedPath, Study
+from idissend.idissend import (
+    Incoming,
+    Stream,
+    Person,
+    AgedPath,
+    Study,
+    PendingAnonStage,
+)
 from tests import RESOURCE_PATH
 from tests.factories import MockAgedPathFactory, StreamFactory, StudyFactory
 
@@ -26,15 +33,25 @@ def an_idssend_structured_folder(tmpdir) -> Path:
 @pytest.fixture
 def some_streams() -> List[Stream]:
     """Some streams, some of which have some data in an_idssend_structured_folder()"""
-    return [StreamFactory(name='project1'),
-            StreamFactory(name='project2'),
-            StreamFactory(name='project3')]
+    return [
+        StreamFactory(name="project1"),
+        StreamFactory(name="project2"),
+        StreamFactory(name="project3"),
+    ]
 
 
 @pytest.fixture
 def an_incoming_folder(an_idssend_structured_folder, some_streams) -> Incoming:
     """An incoming folder which has some actual content on disk"""
     return Incoming(path=an_idssend_structured_folder, streams=some_streams)
+
+
+@pytest.fixture
+def a_pending_anon_folder(an_idssend_structured_folder, some_streams) -> PendingAnonStage:
+    return PendingAnonStage(
+        path=an_idssend_structured_folder, streams=some_streams, client=None
+    )
+# TODO: create mock client
 
 
 def test_incoming_folder(an_incoming_folder):
@@ -54,7 +71,7 @@ def test_cooldown(an_incoming_folder):
         MockAgedPathFactory(age=12),
     ]
     study: Study = StudyFactory()
-    study.get_files = lambda: some_files   # don't check path on disk, just mock
+    study.get_files = lambda: some_files  # don't check path on disk, just mock
 
     assert study.is_older_than(5)
     assert not study.is_older_than(11)
@@ -63,4 +80,6 @@ def test_cooldown(an_incoming_folder):
 
 def test_pending_anon():
     pass
+
+
 # TODO test missing files and read errors

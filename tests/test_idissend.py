@@ -3,13 +3,15 @@
 
 """Tests for `idissend` package."""
 from pathlib import Path
+from typing import List
 
 import pytest
 import shutil
 
 from idissend import idissend
-from idissend.idissend import IncomingFolder, Stream, Person
+from idissend.idissend import IncomingFolder, Stream, Person, AgedPath, Study
 from tests import RESOURCE_PATH
+from tests.factories import MockAgedPathFactory, StreamFactory, StudyFactory
 
 
 @pytest.fixture
@@ -22,43 +24,40 @@ def an_input_folder(tmpdir) -> Path:
 
 
 @pytest.fixture
-def some_streams():
+def some_streams() -> List[Stream]:
     """Some streams, some of which have some data in an_input_folder()"""
-    jessie = Person("Jessie Admin", email="j.admin@localhost.com")
-    rachel = Person("Rachel Search", email="r.search@localhost.com")
-    jack = Person("Jack Serious", email="j.serious@localhost.com")
-    return [
-        Stream(
-            name="project1",
-            output_folder=Path("test_output_project1"),
-            idis_project="Wetenschap-Algemeen",
-            pims_key="1234",
-            contact=jessie,
-        ),
-        Stream(
-            name="project2",
-            output_folder=Path("test_output_project2"),
-            idis_project="Wetenschap-Algemeen",
-            pims_key="4444",
-            contact=rachel,
-        ),
-        Stream(
-            name="project3",
-            output_folder=Path("test_output_project3"),
-            idis_project="Wetenschap-Algemeen",
-            pims_key="5555",
-            contact=jack,
-        ),
-    ]
+    return [StreamFactory(name='project1'),
+            StreamFactory(name='project2'),
+            StreamFactory(name='project3')]
 
 
-def test_incoming_folder(an_input_folder, some_streams):
-    folder = IncomingFolder(path=an_input_folder, streams=some_streams)
+@pytest.fixture
+def an_incoming_folder(an_input_folder, some_streams) -> IncomingFolder:
+    """An incoming folder which has some actual content on disk"""
+    return IncomingFolder(path=an_input_folder, streams=some_streams)
+
+
+def test_incoming_folder(an_incoming_folder):
+    folder = an_incoming_folder
     studies = folder.get_studies()
 
     assert len(studies) == 3
-    assert 'project1' in [x.stream.name for x in studies]
-    assert 'project2' in [x.stream.name for x in studies]
+    assert "project1" in [x.stream.name for x in studies]
+    assert "project2" in [x.stream.name for x in studies]
 
 
-# TODO test cooldown, implement pending anon, implement trash, implement control
+def test_cooldown(an_incoming_folder):
+    """Studies are considered complete after a cooldown period. Does this work?"""
+    some_files = [
+        MockAgedPathFactory(age=10),
+        MockAgedPathFactory(age=11),
+        MockAgedPathFactory(age=12),
+    ]
+    study: Study = StudyFactory()
+    study.get_files = lambda: some_files   # don't check path on disk, just mock
+
+    assert study.is_older_than(5)
+    assert not study.is_older_than(11)
+    assert not study.is_older_than(15)
+
+# TODO implement pending anon, implement trash, implement control

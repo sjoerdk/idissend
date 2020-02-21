@@ -54,35 +54,67 @@ class Stream:
         return self.name
 
 
-class Study:
-    """A number of files all belonging to the same study """
+class AgedPath:
+    """A Path with an age() method which yields time since last modification
 
-    def __init__(self, name: str, stream: Stream, files: List[Path]):
+    Put this age method into this separate object to make other code cleaner
+    """
+
+    def __init__(self, path: Path):
+        self.path = path
+
+    def __str__(self):
+        return str(self.path)
+
+    def age(self) -> float:
+        """Minutes since last modification of this file
+
+        Raises
+        ------
+
+        """
+        delta = datetime.now() - datetime.fromtimestamp(self.path.stat().st_mtime)
+        return delta.total_seconds() / 60
+
+
+class Study:
+    """A folder containing files that all belong to the same study """
+
+    def __init__(self, name: str, stream: Stream, path: Path):
         self.name = name
         self.stream = stream
-        self.files = files
+        self.path = path
 
     def __str__(self):
         return f'{self.stream}:{self.name}'
 
-    def modified_minutes(self) -> float:
-        """Yields the number of minutes since modification for each file in study
+    def get_files(self) -> List[AgedPath]:
+        """All files directly in this folder (no recursing)"""
+        return [AgedPath(x) for x in self.path.glob('*') if x.is_file()]
 
-        Yields instead of return so you can stop checking early
+    def age(self) -> float:
+        """Minutes since last modification of any file in this study"""
+        return min(x.age() for x in self.get_files())
 
-        Yields
-        ------
-        float
-            Number of minutes since file in this study was modified
+    def is_older_than(self, minutes: float):
+        """Is age of each file in this study greater than minutes?
+
+        Potentially faster than age() as it does not check all files
         """
+        for file in self.get_files():
+            if file.age() <= minutes:
+                return False
 
-        for file in self.files:
-            delta = datetime.now() - datetime.fromtimestamp(file.stat().st_mtime)
-            yield delta.total_seconds() / 60
+        return True
 
 
 class IncomingFolder:
-    """A folder where DICOM files are coming in in the structure <stream>/<study>"""
+    """A folder where DICOM files are coming into multiple streams
+    Assumed directory structure is <stream>/<study>/file
+
+    An IncomingFolder can come up with studies that are deemed complete (see init
+    notes below for cooldown)
+    """
 
     def __init__(self, path: Path, streams=List[Stream], cooldown: int = 5):
         """
@@ -119,8 +151,9 @@ class IncomingFolder:
         studies = []
         for stream in self.streams:
             for folder in [x for x in self.get_stream_folder(stream).glob('*')]:
-                files = [x for x in folder.glob('*') if x.is_file()]
-                studies.append(Study(folder.name, stream, files))
+                studies.append(Study(name=folder.name,
+                                     stream=stream,
+                                     path=folder))
 
         if only_cooled:
             studies = [x for x in studies if self.has_cooled_down(x)]
@@ -136,9 +169,4 @@ class IncomingFolder:
 
         Considered cooled down if no file was modified less then <cooldown> mins ago
         """
-
-        for age in study.modified_minutes():
-            if age <= self.cooldown:
-                return False
-
-        return True
+        return study.is_older_than(self.cooldown)

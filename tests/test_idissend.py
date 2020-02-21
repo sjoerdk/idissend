@@ -9,32 +9,32 @@ import pytest
 import shutil
 
 from idissend import idissend
-from idissend.idissend import IncomingFolder, Stream, Person, AgedPath, Study
+from idissend.idissend import Incoming, Stream, Person, AgedPath, Study
 from tests import RESOURCE_PATH
 from tests.factories import MockAgedPathFactory, StreamFactory, StudyFactory
 
 
 @pytest.fixture
-def an_input_folder(tmpdir) -> Path:
+def an_idssend_structured_folder(tmpdir) -> Path:
     """A folder with some DICOM files in <stream>/<study> structure"""
 
-    copy_of_folder = Path(str(tmpdir)) / "an_input_folder"
-    shutil.copytree(RESOURCE_PATH / "an_input_folder", copy_of_folder)
+    copy_of_folder = Path(str(tmpdir)) / "an_idssend_structured_folder"
+    shutil.copytree(RESOURCE_PATH / "an_idssend_structured_folder", copy_of_folder)
     return copy_of_folder
 
 
 @pytest.fixture
 def some_streams() -> List[Stream]:
-    """Some streams, some of which have some data in an_input_folder()"""
+    """Some streams, some of which have some data in an_idssend_structured_folder()"""
     return [StreamFactory(name='project1'),
             StreamFactory(name='project2'),
             StreamFactory(name='project3')]
 
 
 @pytest.fixture
-def an_incoming_folder(an_input_folder, some_streams) -> IncomingFolder:
+def an_incoming_folder(an_idssend_structured_folder, some_streams) -> Incoming:
     """An incoming folder which has some actual content on disk"""
-    return IncomingFolder(path=an_input_folder, streams=some_streams)
+    return Incoming(path=an_idssend_structured_folder, streams=some_streams)
 
 
 def test_incoming_folder(an_incoming_folder):
@@ -60,4 +60,7 @@ def test_cooldown(an_incoming_folder):
     assert not study.is_older_than(11)
     assert not study.is_older_than(15)
 
-# TODO implement pending anon, implement trash, implement control
+
+def test_pending_anon():
+    pass
+# TODO test missing files and read errors

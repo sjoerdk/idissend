@@ -57,7 +57,7 @@ class Stream:
 class AgedPath:
     """A Path with an age() method which yields time since last modification
 
-    Put this age method into this separate object to make other code cleaner
+    makes code cleaner later on
     """
 
     def __init__(self, path: Path):
@@ -80,13 +80,17 @@ class AgedPath:
 class Study:
     """A folder containing files that all belong to the same study """
 
-    def __init__(self, name: str, stream: Stream, path: Path):
+    def __init__(self, name: str, stream: Stream, stage: 'StageFolder'):
         self.name = name
         self.stream = stream
-        self.path = path
+        self.stage = stage
 
     def __str__(self):
         return f'{self.stream}:{self.name}'
+
+    @property
+    def path(self):
+        return self.stage.get_path_for_study(stream=self.stream, study=self)
 
     def get_files(self) -> List[AgedPath]:
         """All files directly in this folder (no recursing)"""
@@ -108,7 +112,27 @@ class Study:
         return True
 
 
-class IncomingFolder:
+class StageFolder:
+    """A distinct step in the pipeline. Contains Studies for different Streams
+
+    A stage is a something like incoming, pending, trash
+    """
+
+    def __init__(self, root_path: Path):
+        self.root_path = root_path
+
+    def get_path_for_stream(self, stream: Stream) -> Path:
+        """Get the folder where data is for this stream """
+
+        return self.root_path / stream.name
+
+    def get_path_for_study(self, stream: Stream, study: Study) -> Path:
+        """Get the folder where data is for this stream and study"""
+
+        return self.get_path_for_stream(stream) / study.name
+
+
+class IncomingFolder(StageFolder):
     """A folder where DICOM files are coming into multiple streams
     Assumed directory structure is <stream>/<study>/file
 
@@ -134,7 +158,7 @@ class IncomingFolder:
             in for <cooldown> minutes, the transfer is probably done'. Bit sad
             but the only way to do this with DICOM cstore.
         """
-        self.path = path
+        super(IncomingFolder, self).__init__(root_path=path)
         self.streams = streams
         self.cooldown = cooldown
 
@@ -153,7 +177,7 @@ class IncomingFolder:
             for folder in [x for x in self.get_stream_folder(stream).glob('*')]:
                 studies.append(Study(name=folder.name,
                                      stream=stream,
-                                     path=folder))
+                                     stage=self))
 
         if only_cooled:
             studies = [x for x in studies if self.has_cooled_down(x)]
@@ -162,7 +186,7 @@ class IncomingFolder:
 
     def get_stream_folder(self, stream: Stream) -> Path:
         """Get the folder where data is coming in for this stream """
-        return self.path / stream.name
+        return self.get_path_for_stream(stream)
 
     def has_cooled_down(self, study: Study) -> bool:
         """Check whether files are still coming in for this study
@@ -170,3 +194,25 @@ class IncomingFolder:
         Considered cooled down if no file was modified less then <cooldown> mins ago
         """
         return study.is_older_than(self.cooldown)
+
+
+class PendingAnonFolder(StageFolder):
+    """A folder where studies are waiting to be anonymized
+
+    Can give information on which studies are waiting, which are done and which are
+    probably stale or have a different problem. Can communicate with IDIS to get
+    additional info
+
+    """
+    pass
+
+
+class TrashFolder(StageFolder):
+    """Where studies are sent after they have been anonymized.
+
+    Can be emptied kind of prudently (Keep as much as possible but also keep
+    enough space left)"""
+
+    pass
+
+

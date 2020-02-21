@@ -2,7 +2,7 @@ from pathlib import Path
 
 import factory
 
-from idissend.idissend import AgedPath, Study, Stream, Person
+from idissend.idissend import AgedPath, Study, Stream, Person, StageFolder
 
 
 class MockAgedPath(AgedPath):
@@ -40,10 +40,17 @@ class StreamFactory(factory.Factory):
     contact = factory.SubFactory(PersonFactory)
 
 
+class StageFactory(factory.Factory):
+    class Meta:
+        model = StageFolder
+
+    root_path = factory.sequence(lambda n: Path(f"mock_path_{n}"))
+
+
 class StudyFactory(factory.Factory):
     class Meta:
         model = Study
 
     name = factory.sequence(lambda n: f"study_{n}")
     stream = factory.SubFactory(StreamFactory)
-    path = factory.sequence(lambda n: Path(f"mock_path_{n}"))
+    stage = factory.SubFactory(StageFactory)

@@ -151,9 +151,7 @@ class Stage:
         """
         self.name = name
         self.path = path
-        self.streams = []
-        for stream in streams:
-            self.add_stream(stream)
+        self.streams = streams
 
     def __str__(self):
         return self.name
@@ -177,7 +175,9 @@ class Stage:
             The study after pushing to this stage
 
         """
-        if study.stream not in self.streams:
+        if study.stream in self.streams:
+            self._assert_path_for_stream(study.stream)
+        else:
             raise StudyPushException(f"Stream '{study.stream}' "
                                      f"does not exist in {self}")
 
@@ -187,7 +187,7 @@ class Stage:
         destination = str(self.get_path_for_stream(study.stream))
         try:
             shutil.move(source, destination)
-            study = self.push_study_callback(study)
+            return self.push_study_callback(study)
 
         except (IDISSendException, PushStudyCallbackException) as e:
             # roll back. move data back where it came from

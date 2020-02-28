@@ -1,8 +1,9 @@
 from pathlib import Path
 
 import factory
+from anonapi.responses import JobInfo
 
-from idissend.idissend import AgedPath, Study, Stream, Person, Stage
+from idissend.core import AgedPath, Study, Stream, Person, Stage
 
 
 class MockAgedPath(AgedPath):
@@ -44,6 +45,7 @@ class StageFactory(factory.Factory):
     class Meta:
         model = Stage
 
+    name = factory.sequence(lambda n: Path(f"Mock stage {n}"))
     path = factory.sequence(lambda n: Path(f"mock_path_{n}"))
     streams = factory.List([factory.SubFactory(StreamFactory) for _ in range(3)])
 

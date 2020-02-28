@@ -7,8 +7,10 @@ from typing import List
 from anonapi.client import AnonClientTool
 from anonapi.exceptions import AnonAPIException
 from anonapi.objects import RemoteAnonServer
+from sqlalchemy.exc import SQLAlchemyError
 
 from idissend.exceptions import IDISSendException
+from idissend.persistence import IDISSendRecords
 
 
 class Person:
@@ -62,10 +64,8 @@ class Stream:
         return self.name
 
 
-class AgedPath:
-    """A Path with an age() method which yields time since last modification
-
-    makes code cleaner later on
+class IncomingFile:
+    """A file which just came in to a folder. Allows checking of age()
     """
 
     def __init__(self, path: Path):
@@ -101,9 +101,9 @@ class Study:
         """Full path to the folder that data for this study is in"""
         return self.stage.get_path_for_study(self)
 
-    def get_files(self) -> List[AgedPath]:
+    def get_files(self) -> List[IncomingFile]:
         """All files directly in this folder (no recursing)"""
-        return [AgedPath(x) for x in self.path.glob('*') if x.is_file()]
+        return [IncomingFile(x) for x in self.path.glob('*') if x.is_file()]
 
     def age(self) -> float:
         """Minutes since last modification of any file in this study"""
@@ -357,7 +357,7 @@ class PendingAnon(Stage):
     Communicates with IDIS to get info
     """
     def __init__(self, name: str, path: Path, streams: List[Stream],
-                 idis_connection: IDISConnection):
+                 idis_connection: IDISConnection, records: IDISSendRecords):
         """
 
         Parameters
@@ -370,10 +370,13 @@ class PendingAnon(Stage):
             All the streams for which this folder could receive data
         idis_connection: IDISConnection
             Used for communicating with IDIS
+        records: IDISSendRecords
+            Persistent storage for which studies have been sent to IDIS
         """
 
         super(PendingAnon, self).__init__(name=name, path=path, streams=streams)
         self.idis_connection = idis_connection
+        self.records = records
 
     def push_study_callback(self, study: Study) -> Study:
         """
@@ -408,7 +411,14 @@ class PendingAnon(Stage):
         except AnonAPIException as e:
             raise PushStudyCallbackException(e)
 
-        # save job id for this study to check later
+        # save job id for this study to check back on later
+        try:
+            self.records.add(study_folder=study.path,
+                             job_id=created.job_id,
+                             server_name=study.stream.idis_project
+                             )
+        except SQLAlchemyError as e:
+            raise PushStudyCallbackException(e)
 
         return study
 

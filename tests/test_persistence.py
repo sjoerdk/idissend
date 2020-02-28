@@ -71,6 +71,8 @@ def test_idis_send_records(tmpdir):
 
     with IDISSendRecords(session=session) as records:
         assert len(records.get_all()) == 1
+        assert records.get_for_job_id(99)
+        assert not records.get_for_job_id(100)
 
 
 

@@ -3,20 +3,21 @@ from pathlib import Path
 import factory
 from anonapi.responses import JobInfo
 
-from idissend.core import AgedPath, Study, Stream, Person, Stage
+from idissend.core import IncomingFile, Study, Stream, Person, Stage
 
 
-class MockAgedPath(AgedPath):
-    """An aged path which does not check on disk but just returns a set age value"""
+class MockIncomingFile(IncomingFile):
+    """An IncomingFile which does not check on disk but just returns a set age
+    value"""
 
     def __init__(self, path: Path, age: float):
-        super(MockAgedPath, self).__init__(path)
+        super(MockIncomingFile, self).__init__(path)
         self.age = lambda: age
 
 
-class MockAgedPathFactory(factory.Factory):
+class MockIncomingFileFactory(factory.Factory):
     class Meta:
-        model = MockAgedPath
+        model = MockIncomingFile
 
     path = factory.sequence(lambda n: Path(f"mock_path_{n}"))
     age = 10

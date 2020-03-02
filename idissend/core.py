@@ -221,25 +221,6 @@ class Stage:
         # Implement specifics in child classes
         return study
 
-    def add_stream(self, stream: Stream):
-        """Add stream to this stage
-
-        Raises
-        ------
-        ValueError
-            If already registered
-        """
-        if stream in self.streams:
-            raise ValueError(f'Stream {stream} is already registered with {self}')
-        else:
-            self._assert_path_for_stream(stream)
-            self.streams.append(stream)
-
-    def assert_stream(self, stream: Stream):
-        if stream not in self.streams:
-            self.add_stream(stream)
-            self._assert_path_for_stream(stream)
-
     def get_path_for_stream(self, stream: Stream) -> Path:
         """Get the folder where data is for this stream """
 

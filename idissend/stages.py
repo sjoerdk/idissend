@@ -63,10 +63,6 @@ class Incoming(Stage):
 
         return studies
 
-    def get_stream_folder(self, stream: Stream) -> Path:
-        """Get the folder where data is coming in for this stream """
-        return self.get_path_for_stream(stream)
-
     def has_cooled_down(self, study: Study) -> bool:
         """Check whether files are still coming in for this study
 
@@ -112,7 +108,7 @@ class PendingStudy(Study):
         self.record = record
 
     @property
-    def status(self) -> str:
+    def last_status(self) -> str:
         """Get last known status of IDIS job for this study from records
 
         Returns
@@ -171,7 +167,8 @@ class PendingAnon(Stage):
         self.records = records
 
     def push_study_callback(self, study: Study) -> PendingStudy:
-        """
+        """Creates an IDIS job for the given study
+
         Parameters
         ----------
         study: Study
@@ -212,7 +209,7 @@ class PendingAnon(Stage):
                     job_id=created.job_id,
                     server_name=server.name
                 )
-                test = record.server_name
+
         except SQLAlchemyError as e:
             raise PushStudyCallbackException(e)
 
@@ -263,8 +260,14 @@ class PendingAnon(Stage):
         return self.idis_connection.get_server(server_name=server_name)
 
     def update_records(self, studies: List[PendingStudy]) -> List[PendingStudy]:
-        """Contact IDIS to get updated status for all given studies"""
-        # group per IDIS server and do one query per server to get job infos
+        """Contact IDIS to get updated status for all given studies
+
+        Raises
+        ------
+        IDISCommunicationError
+            If anything goes wrong getting information from IDIS
+        """
+        # group jobs per IDIS server to minimize number of web API queries
         studies_per_server = defaultdict(list)
         for study in studies:
             studies_per_server[self.get_server(study.record.server_name)].append(study)
@@ -282,13 +285,14 @@ class PendingAnon(Stage):
                 info = {x.job_id: x for x in job_infos}.get(study.job_id)
                 if not info:
                     raise IDISCommunicationException(
-                        f"Could not find job {study.job_id} for {study} in {server}")
+                        f"study '{study}' should have a job with id {study.job_id} "
+                        f"in {server}, but that job id does not seem to exist there")
                 job_info_per_study[study] = info
 
         # now update all records with the gathered IDIS data
         with self.records.get_session() as session:
             for study, job_info in job_info_per_study.items():
-                study.record.status = job_info.status
+                study.record.last_status = job_info.status
                 study.record.last_check = datetime.now()
                 session.add_record(study.record)
 
@@ -309,7 +313,7 @@ class PendingAnon(Stage):
             return self.idis_connection.client_tool.get_job_info_list(
                 server=server, job_ids=list(job_ids))
         except ClientToolException as e:
-            IDISCommunicationException(e)
+            raise IDISCommunicationException(e)
 
 
 class Trash(Stage):

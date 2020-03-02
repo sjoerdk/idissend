@@ -2,12 +2,15 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from anonapi.client import ClientToolException
+from anonapi.responses import JobsInfoList
 from anonapi.testresources import RemoteAnonServerFactory, JobInfoFactory, JobStatus, \
     MockAnonClientTool
 
 from idissend.core import StudyPushException, PushStudyCallbackException
 from idissend.persistence import IDISSendRecords, get_memory_only_sessionmaker
-from idissend.stages import PendingAnon, IDISConnection, UnknownServerException
+from idissend.stages import PendingAnon, IDISConnection, UnknownServerException, \
+    IDISCommunicationException
 
 
 @pytest.fixture
@@ -88,6 +91,22 @@ def test_pending_anon_push(an_empty_pending_stage, mock_anon_client_tool, a_stud
         assert len(session.get_all()) == 1
 
 
+def test_pending_anon_push_idis_exception(
+        an_empty_pending_stage, mock_anon_client_tool, a_study):
+    """Pending should create IDIS jobs. What happens when these fail?
+     """
+    # contact IDIS will not work
+    mock_anon_client_tool.create_path_job = Mock(
+        side_effect=ClientToolException("Terrible API error"))
+
+    # pushing should raise
+    with pytest.raises(StudyPushException):
+        an_empty_pending_stage.push_study(a_study)
+
+    # any copy or move should have been rolled back
+    assert len(an_empty_pending_stage.get_all_studies()) == 0
+
+
 def test_pending_anon_check_status(mock_anon_client_tool,
                                    a_pending_anon_stage_with_data):
     """A pending stage should be able to check on job status with IDIS
@@ -103,16 +122,44 @@ def test_pending_anon_check_status(mock_anon_client_tool,
     # get record for each stage
     studies = stage.get_all_studies()
 
-    # update all records for each stage with IDIS
+    # contact IDIS to get the latest on the jobs corresponding to each study
     studies = stage.update_records(studies)
 
     # get important groups: Studies finished, errored, still pending
-    finished = [x for x in studies if x.status == JobStatus.DONE]
-    errored = [x for x in studies if x.status == JobStatus.ERROR]
-    still_going = [x for x in studies if x.status == JobStatus.ACTIVE]
-    cancelled = [x for x in studies if x.status == JobStatus.INACTIVE]
+    finished = [x for x in studies if x.last_status == JobStatus.DONE]
+    errored = [x for x in studies if x.last_status == JobStatus.ERROR]
+    still_going = [x for x in studies if x.last_status == JobStatus.ACTIVE]
+    cancelled = [x for x in studies if x.last_status == JobStatus.INACTIVE]
 
-    test = 1
+    assert len(finished) == 1
+    assert len(errored) == 1
+    assert len(cancelled) == 1
+    assert len(still_going) == 0
+
+
+def test_pending_anon_check_status_exceptions(mock_anon_client_tool,
+                                              a_pending_anon_stage_with_data):
+    """Handle errors in interaction with IDIS gracefully
+
+    """
+
+    stage = a_pending_anon_stage_with_data
+    studies = stage.get_all_studies()
+
+    # Contacting IDIS will not work at all (for example when server is down)
+    mock_anon_client_tool.get_job_info_list = Mock(
+        side_effect=ClientToolException("Terrible API error"))
+
+    with pytest.raises(IDISCommunicationException):
+        stage.update_records(studies)
+
+    # Contacting IDIS will work, but not all job ids are found (only id=1 is returned)
+    mock_anon_client_tool.get_job_info_list = Mock(
+        return_value=JobsInfoList(job_infos=[JobInfoFactory(job_id=1)]))
+
+    with pytest.raises(IDISCommunicationException):
+        stage.update_records(studies)
+
 
 
 def test_push_study(an_incoming_stage, some_stages):

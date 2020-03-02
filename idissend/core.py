@@ -1,16 +1,17 @@
 """Core concepts in idissend"""
 
 import shutil
+
 from copy import deepcopy
 from datetime import datetime
+from idissend.exceptions import IDISSendException
 from pathlib import Path
 from typing import List
-
-from idissend.exceptions import IDISSendException
 
 
 class Person:
     """A person with contact details"""
+
     def __init__(self, name: str, email: str):
         self.name = name
         self.email = email
@@ -29,11 +30,15 @@ class Stream:
     is exactly. This is the responsibility of each Stage
 
     """
-    def __init__(self, name: str,
-                 output_folder: Path,
-                 idis_project: str,
-                 pims_key: str,
-                 contact: Person):
+
+    def __init__(
+        self,
+        name: str,
+        output_folder: Path,
+        idis_project: str,
+        pims_key: str,
+        contact: Person,
+    ):
         """
 
         Parameters
@@ -84,13 +89,13 @@ class IncomingFile:
 class Study:
     """A folder containing files that all belong to the same study """
 
-    def __init__(self, name: str, stream: Stream, stage: 'Stage'):
+    def __init__(self, name: str, stream: Stream, stage: "Stage"):
         self.name = name
         self.stream = stream
         self.stage = stage
 
     def __str__(self):
-        return f'{self.stream}:{self.name}'
+        return f"{self.stream}:{self.name}"
 
     @property
     def path(self) -> Path:
@@ -99,7 +104,7 @@ class Study:
 
     def get_files(self) -> List[Path]:
         """All files directly in this folder (no recursing)"""
-        return [x for x in self.path.glob('*') if x.is_file()]
+        return [x for x in self.path.glob("*") if x.is_file()]
 
     def age(self) -> float:
         """Minutes since last modification of any file in this study"""
@@ -134,6 +139,7 @@ class Stage:
       or into a stage is done from the outside.
 
     """
+
     def __init__(self, name: str, path: Path, streams: List[Stream]):
         """
 
@@ -176,22 +182,27 @@ class Stage:
         if study.stream in self.streams:
             self._assert_path_for_stream(study.stream)
         else:
-            raise StudyPushException(f"Stream '{study.stream}' "
-                                     f"does not exist in {self}")
+            raise StudyPushException(
+                f"Stream '{study.stream}' " f"does not exist in {self}"
+            )
 
         original_stage = deepcopy(study.stage)  # keep original for possible rollback
         new_stage = self
 
         try:
-            shutil.move(str(original_stage.get_path_for_study(study)),
-                        str(new_stage.get_path_for_stream(study.stream)))
+            shutil.move(
+                str(original_stage.get_path_for_study(study)),
+                str(new_stage.get_path_for_stream(study.stream)),
+            )
             study.stage = new_stage
             return self.push_study_callback(study)
 
         except (IDISSendException, PushStudyCallbackException) as e:
             # roll back. move data back where it came from
-            shutil.move(str(new_stage.get_path_for_study(study)),
-                        str(original_stage.get_path_for_stream(study.stream)))
+            shutil.move(
+                str(new_stage.get_path_for_study(study)),
+                str(original_stage.get_path_for_stream(study.stream)),
+            )
             study.stage = original_stage
             raise StudyPushException(e)
         except (FileNotFoundError, OSError) as e:
@@ -253,10 +264,8 @@ class Stage:
 
         """
         studies = []
-        for folder in [x for x in self.get_path_for_stream(stream).glob('*')]:
-            studies.append(Study(name=folder.name,
-                                 stream=stream,
-                                 stage=self))
+        for folder in [x for x in self.get_path_for_stream(stream).glob("*")]:
+            studies.append(Study(name=folder.name, stream=stream, stage=self))
 
         return studies
 

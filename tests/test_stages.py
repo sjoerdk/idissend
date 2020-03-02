@@ -4,13 +4,21 @@ from unittest.mock import Mock
 import pytest
 from anonapi.client import ClientToolException
 from anonapi.responses import JobsInfoList
-from anonapi.testresources import RemoteAnonServerFactory, JobInfoFactory, JobStatus, \
-    MockAnonClientTool
+from anonapi.testresources import (
+    RemoteAnonServerFactory,
+    JobInfoFactory,
+    JobStatus,
+    MockAnonClientTool,
+)
 
 from idissend.core import StudyPushException, PushStudyCallbackException
 from idissend.persistence import IDISSendRecords, get_memory_only_sessionmaker
-from idissend.stages import PendingAnon, IDISConnection, UnknownServerException, \
-    IDISCommunicationException
+from idissend.stages import (
+    PendingAnon,
+    IDISConnection,
+    UnknownServerException,
+    IDISCommunicationException,
+)
 
 
 @pytest.fixture
@@ -37,7 +45,7 @@ def an_idis_connection(mock_anon_client_tool):
 
 @pytest.fixture()
 def an_empty_pending_stage(
-        some_streams, an_idis_connection, tmpdir, a_records_db
+    some_streams, an_idis_connection, tmpdir, a_records_db
 ) -> PendingAnon:
     """An empty pending stage with a mocked connection to IDIS and mocked records db
     """
@@ -57,8 +65,7 @@ def a_records_db() -> IDISSendRecords:
 
 
 @pytest.fixture
-def a_pending_anon_stage_with_data(
-        an_empty_pending_stage, some_studies) -> PendingAnon:
+def a_pending_anon_stage_with_data(an_empty_pending_stage, some_studies) -> PendingAnon:
     """A pending stage to which three studies have been pushed"""
     for study in some_studies:
         an_empty_pending_stage.push_study(study)
@@ -66,11 +73,13 @@ def a_pending_anon_stage_with_data(
 
 
 def test_idis_connection(an_idis_connection):
-    an_idis_connection.servers = [RemoteAnonServerFactory(name='server1'),
-                                  RemoteAnonServerFactory(name='server2')]
-    assert an_idis_connection.get_server('server1')
+    an_idis_connection.servers = [
+        RemoteAnonServerFactory(name="server1"),
+        RemoteAnonServerFactory(name="server2"),
+    ]
+    assert an_idis_connection.get_server("server1")
     with pytest.raises(UnknownServerException):
-        an_idis_connection.get_server('unknown server')
+        an_idis_connection.get_server("unknown server")
 
 
 def test_pending_anon_push(an_empty_pending_stage, mock_anon_client_tool, a_study):
@@ -92,12 +101,14 @@ def test_pending_anon_push(an_empty_pending_stage, mock_anon_client_tool, a_stud
 
 
 def test_pending_anon_push_idis_exception(
-        an_empty_pending_stage, mock_anon_client_tool, a_study):
+    an_empty_pending_stage, mock_anon_client_tool, a_study
+):
     """Pending should create IDIS jobs. What happens when these fail?
      """
     # contact IDIS will not work
     mock_anon_client_tool.create_path_job = Mock(
-        side_effect=ClientToolException("Terrible API error"))
+        side_effect=ClientToolException("Terrible API error")
+    )
 
     # pushing should raise
     with pytest.raises(StudyPushException):
@@ -107,8 +118,9 @@ def test_pending_anon_push_idis_exception(
     assert len(an_empty_pending_stage.get_all_studies()) == 0
 
 
-def test_pending_anon_check_status(mock_anon_client_tool,
-                                   a_pending_anon_stage_with_data):
+def test_pending_anon_check_status(
+    mock_anon_client_tool, a_pending_anon_stage_with_data
+):
     """A pending stage should be able to check on job status with IDIS
     """
 
@@ -137,8 +149,9 @@ def test_pending_anon_check_status(mock_anon_client_tool,
     assert len(still_going) == 0
 
 
-def test_pending_anon_check_status_exceptions(mock_anon_client_tool,
-                                              a_pending_anon_stage_with_data):
+def test_pending_anon_check_status_exceptions(
+    mock_anon_client_tool, a_pending_anon_stage_with_data
+):
     """Handle errors in interaction with IDIS gracefully
 
     """
@@ -148,18 +161,19 @@ def test_pending_anon_check_status_exceptions(mock_anon_client_tool,
 
     # Contacting IDIS will not work at all (for example when server is down)
     mock_anon_client_tool.get_job_info_list = Mock(
-        side_effect=ClientToolException("Terrible API error"))
+        side_effect=ClientToolException("Terrible API error")
+    )
 
     with pytest.raises(IDISCommunicationException):
         stage.update_records(studies)
 
     # Contacting IDIS will work, but not all job ids are found (only id=1 is returned)
     mock_anon_client_tool.get_job_info_list = Mock(
-        return_value=JobsInfoList(job_infos=[JobInfoFactory(job_id=1)]))
+        return_value=JobsInfoList(job_infos=[JobInfoFactory(job_id=1)])
+    )
 
     with pytest.raises(IDISCommunicationException):
         stage.update_records(studies)
-
 
 
 def test_push_study(an_incoming_stage, some_stages):

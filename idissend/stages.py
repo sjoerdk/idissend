@@ -1,19 +1,18 @@
 """Specific implementations of stages the data goes through"""
-from collections import defaultdict
-from datetime import datetime
-from pathlib import Path
-from typing import List, Optional, Iterable
 
 from anonapi.client import AnonClientTool, ClientToolException
 from anonapi.exceptions import AnonAPIException
 from anonapi.objects import RemoteAnonServer
-from anonapi.responses import JobInfo, JobsInfoList
-from sqlalchemy.exc import SQLAlchemyError
-
+from anonapi.responses import JobsInfoList
+from collections import defaultdict
+from datetime import datetime
 from idissend.core import Stage, Stream, Study, PushStudyCallbackException
 from idissend.exceptions import IDISSendException
 from idissend.orm import PendingAnonRecord
 from idissend.persistence import IDISSendRecords
+from pathlib import Path
+from sqlalchemy.exc import SQLAlchemyError
+from typing import List, Optional, Iterable
 
 
 class Incoming(Stage):
@@ -95,7 +94,8 @@ class IDISConnection:
         else:
             raise UnknownServerException(
                 f"Server '{server_name}' not found. Known s"
-                f"ervers:{[str(x) for x in self.servers]}")
+                f"ervers:{[str(x) for x in self.servers]}"
+            )
 
 
 class PendingStudy(Study):
@@ -127,6 +127,10 @@ class PendingStudy(Study):
     def job_id(self) -> int:
         """IDIS job id for the job associated with this study"""
         return self.record.job_id
+
+    @property
+    def server_name(self) -> str:
+        return self.record.server_name
 
 
 class PendingAnon(Stage):
@@ -207,7 +211,7 @@ class PendingAnon(Stage):
                 record = session.add(
                     study_folder=study.path,
                     job_id=created.job_id,
-                    server_name=server.name
+                    server_name=server.name,
                 )
 
         except SQLAlchemyError as e:
@@ -219,18 +223,17 @@ class PendingAnon(Stage):
         """PendingAnon returns PendingStudy objects, which hold additional info on
         IDIS job status """
         studies = super().get_all_studies()
-        return [self.to_pending_study(x) for x in
-                studies]
+        return [self.to_pending_study(x) for x in studies]
 
     def get_studies(self, stream: Stream) -> List[PendingStudy]:
         """Get all studies for the given stream
 
         """
-        return [self.to_pending_study(x) for x in
-                super().get_studies(stream=stream)]
+        return [self.to_pending_study(x) for x in super().get_studies(stream=stream)]
 
-    def to_pending_study(self, study: Study, record: PendingAnonRecord = None
-                         ) -> PendingStudy:
+    def to_pending_study(
+        self, study: Study, record: PendingAnonRecord = None
+    ) -> PendingStudy:
         """Combine Study with a record, turning into PendingStudy. If record
         is not given, look it up in records db
 
@@ -270,14 +273,14 @@ class PendingAnon(Stage):
         # group jobs per IDIS server to minimize number of web API queries
         studies_per_server = defaultdict(list)
         for study in studies:
-            studies_per_server[self.get_server(study.record.server_name)].append(study)
+            studies_per_server[self.get_server(study.server_name)].append(study)
 
         job_info_per_study = {}
         for server in studies_per_server:
             # get info from IDIS
             job_infos = self.get_job_info_list(
-                server=server,
-                job_ids=[x.job_id for x in studies_per_server[server]])
+                server=server, job_ids=[x.job_id for x in studies_per_server[server]]
+            )
 
             # associate what you get back with studies
             for study in studies_per_server[server]:
@@ -286,7 +289,8 @@ class PendingAnon(Stage):
                 if not info:
                     raise IDISCommunicationException(
                         f"study '{study}' should have a job with id {study.job_id} "
-                        f"in {server}, but that job id does not seem to exist there")
+                        f"in {server}, but that job id does not seem to exist there"
+                    )
                 job_info_per_study[study] = info
 
         # now update all records with the gathered IDIS data
@@ -298,9 +302,9 @@ class PendingAnon(Stage):
 
         return list(job_info_per_study.keys())
 
-    def get_job_info_list(self,
-                          server: RemoteAnonServer,
-                          job_ids: Iterable[int]) -> JobsInfoList:
+    def get_job_info_list(
+        self, server: RemoteAnonServer, job_ids: Iterable[int]
+    ) -> JobsInfoList:
         """Contact IDIS server for updated info given jobs
 
         Raises
@@ -311,7 +315,8 @@ class PendingAnon(Stage):
         """
         try:
             return self.idis_connection.client_tool.get_job_info_list(
-                server=server, job_ids=list(job_ids))
+                server=server, job_ids=list(job_ids)
+            )
         except ClientToolException as e:
             raise IDISCommunicationException(e)
 
@@ -328,9 +333,12 @@ class Trash(Stage):
 class RecordNotFoundException(IDISSendException):
     pass
 
+
 class IDISCommunicationException(IDISSendException):
     """Something went wrong getting info from IDIS"""
+
     pass
+
 
 class UnknownServerException(IDISCommunicationException):
     pass

@@ -1,9 +1,7 @@
-from pathlib import Path
-
 import factory
-from anonapi.responses import JobInfo
 
 from idissend.core import IncomingFile, Study, Stream, Person, Stage
+from pathlib import Path
 
 
 class MockIncomingFile(IncomingFile):
@@ -27,8 +25,8 @@ class PersonFactory(factory.Factory):
     class Meta:
         model = Person
 
-    name = factory.Faker('first_name')
-    email = factory.LazyAttribute(lambda a: f'{a.name}@example.com')
+    name = factory.Faker("first_name")
+    email = factory.LazyAttribute(lambda a: f"{a.name}@example.com")
 
 
 class StreamFactory(factory.Factory):

@@ -1,16 +1,14 @@
 """Classes and functions to be able to hold on to records beyond python executions
 """
-import pickle
-from datetime import datetime
-from pathlib import Path
-from typing import List, Optional
-
 import sqlalchemy
 
+from datetime import datetime
 from idissend.exceptions import IDISSendException
 from idissend.orm import Base, PendingAnonRecord
+from pathlib import Path
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy import create_engine
+from typing import List, Optional
 
 Session = sessionmaker()
 
@@ -71,21 +69,27 @@ class IDISSendRecordsSession:
 
     def get_for_study_folder(self, study_folder: Path) -> Optional[PendingAnonRecord]:
         """Get record for the given study folder. Returns None if not found"""
-        return self.session.query(PendingAnonRecord).filter(
-            PendingAnonRecord.study_folder == study_folder).first()
+        return (
+            self.session.query(PendingAnonRecord)
+            .filter(PendingAnonRecord.study_folder == study_folder)
+            .first()
+        )
 
     def get_for_job_id(self, job_id: int) -> Optional[PendingAnonRecord]:
         """Get record for the given job_id. Returns None if not found"""
-        return self.session.query(PendingAnonRecord).filter(
-            PendingAnonRecord.job_id == job_id).first()
+        return (
+            self.session.query(PendingAnonRecord)
+            .filter(PendingAnonRecord.job_id == job_id)
+            .first()
+        )
 
     def add(
-            self,
-            study_folder: Path,
-            job_id: int,
-            server_name: str,
-            last_status: Optional[str] = None,
-            last_check: Optional[datetime] = None,
+        self,
+        study_folder: Path,
+        job_id: int,
+        server_name: str,
+        last_status: Optional[str] = None,
+        last_check: Optional[datetime] = None,
     ) -> PendingAnonRecord:
         """Create a records with the given parameters.
 
@@ -93,11 +97,13 @@ class IDISSendRecordsSession:
         argument types and default arguments
         """
 
-        record = PendingAnonRecord(study_folder=study_folder,
-                                   job_id=job_id,
-                                   server_name=server_name,
-                                   last_status=last_status,
-                                   last_check=last_check)
+        record = PendingAnonRecord(
+            study_folder=study_folder,
+            job_id=job_id,
+            server_name=server_name,
+            last_status=last_status,
+            last_check=last_check,
+        )
         self.add_record(record)
         return record
 

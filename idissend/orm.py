@@ -2,11 +2,10 @@
 
 """
 from pathlib import Path
-
 from sqlalchemy import types
 from sqlalchemy.ext.declarative.api import declarative_base
 from sqlalchemy.sql.schema import Column
-from sqlalchemy.sql.sqltypes import Integer, PickleType, String, DateTime
+from sqlalchemy.sql.sqltypes import Integer, String, DateTime
 from sqlalchemy.sql.type_api import TypeDecorator
 
 Base = declarative_base()
@@ -14,6 +13,7 @@ Base = declarative_base()
 
 class PathType(TypeDecorator):
     """A sqlalchemy type for pathlib.Path instances"""
+
     impl = types.String
 
     def process_bind_param(self, value, dialect):
@@ -29,7 +29,7 @@ class PathType(TypeDecorator):
 class PendingAnonRecord(Base):
     """Records for studies that er pending anonymization"""
 
-    __tablename__ = 'pending_anon'
+    __tablename__ = "pending_anon"
 
     id = Column(Integer, primary_key=True)
     study_folder = Column(PathType)

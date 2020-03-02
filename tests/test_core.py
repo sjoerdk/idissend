@@ -23,10 +23,10 @@ def test_cooldown(monkeypatch):
     study.get_files = lambda: some_files  # don't check path on disk, just mock
 
     # checking the age of these files will yield 10, 11, 12, 10, etc..
-    monkeypatch.setattr("idissend.core.IncomingFile.age",
-                        Mock(side_effect=cycle([10, 11, 12])))
+    monkeypatch.setattr(
+        "idissend.core.IncomingFile.age", Mock(side_effect=cycle([10, 11, 12]))
+    )
 
     assert study.is_older_than(5)
     assert not study.is_older_than(11)
     assert not study.is_older_than(15)
-

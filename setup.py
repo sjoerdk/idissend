@@ -11,7 +11,7 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['Click>=7.0', 'sqlalchemy']
+requirements = ['Click>=7.0', 'sqlalchemy', 'anonapi>=1.0.10']
 
 setup_requirements = ['pytest-runner', ]
 

@@ -2,14 +2,14 @@ from datetime import datetime
 from pathlib import Path
 
 from idissend.orm import PendingAnonRecord
-from idissend.persistence import get_session, IDISSendRecords
+from idissend.persistence import get_db_sessionmaker, IDISSendRecords
 
 
 def test_db(tmpdir):
     """Just very basic object creation in db. Check that it works as expected"""
 
     db_file = Path(tmpdir) / "test_db.sqlite"
-    session = get_session(db_file)
+    session = get_db_sessionmaker(db_file)
 
     study_folder = Path('/tmp/a_path')
     job_id = 123
@@ -25,7 +25,7 @@ def test_db(tmpdir):
     session.commit()
     session.close()
 
-    session = get_session(db_file)
+    session = get_db_sessionmaker(db_file)
     test = session.query(PendingAnonRecord).first()
     assert not test.last_check
     assert not test.last_status
@@ -37,7 +37,7 @@ def test_db(tmpdir):
     session.commit()
     session.close()
 
-    session = get_session(db_file)
+    session = get_db_sessionmaker(db_file)
     test = session.query(PendingAnonRecord).first()
     assert test.study_folder == study_folder
     assert test.last_check == last_check
@@ -47,32 +47,32 @@ def test_idis_send_records(tmpdir):
     """the records object makes interacting with db slightly cleaner """
 
     db_file = Path(tmpdir) / "test_db.sqlite"
-    session = get_session(db_file)
+    records = IDISSendRecords(session_maker=get_db_sessionmaker(db_file))
 
-    with IDISSendRecords(session=session) as records:
-        assert not records.get_all()
-        records.add(study_folder=Path('test/something'),
+    with records.get_session() as session:
+        assert not session.get_all()
+        session.add(study_folder=Path('test/something'),
                     job_id=99,
                     server_name='p03')
 
-        records.add(study_folder=Path('test/something2'),
+        session.add(study_folder=Path('test/something2'),
                     job_id=100,
                     server_name='p03')
 
-    with IDISSendRecords(session=session) as records:
-        assert len(records.get_all()) == 2
-        assert records.get_for_study_folder(
+    with records.get_session() as session:
+        assert len(session.get_all()) == 2
+        assert session.get_for_study_folder(
             study_folder=Path('test/something2')).job_id == 100
-        assert not records.get_for_study_folder(
+        assert not session.get_for_study_folder(
             study_folder=Path('test/something5'))
 
-        records.delete(records.get_for_study_folder(
+        session.delete(session.get_for_study_folder(
             study_folder=Path('test/something2')))
 
-    with IDISSendRecords(session=session) as records:
-        assert len(records.get_all()) == 1
-        assert records.get_for_job_id(99)
-        assert not records.get_for_job_id(100)
+    with records.get_session() as session:
+        assert len(session.get_all()) == 1
+        assert session.get_for_job_id(99)
+        assert not session.get_for_job_id(100)
 
 
 

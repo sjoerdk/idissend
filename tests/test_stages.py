@@ -6,8 +6,8 @@ from anonapi.testresources import RemoteAnonServerFactory, JobInfoFactory, JobSt
     MockAnonClientTool
 
 from idissend.core import StudyPushException, PushStudyCallbackException
-from idissend.persistence import IDISSendRecords, get_memory_only_session
-from idissend.stages import PendingAnon, IDISConnection
+from idissend.persistence import IDISSendRecords, get_memory_only_sessionmaker
+from idissend.stages import PendingAnon, IDISConnection, UnknownServerException
 
 
 @pytest.fixture
@@ -33,10 +33,10 @@ def an_idis_connection(mock_anon_client_tool):
 
 
 @pytest.fixture()
-def a_pending_anon_stage(
+def an_empty_pending_stage(
         some_streams, an_idis_connection, tmpdir, a_records_db
 ) -> PendingAnon:
-    """An empty pending stage with a mocked connection to IDIS
+    """An empty pending stage with a mocked connection to IDIS and mocked records db
     """
     return PendingAnon(
         name="pending",
@@ -50,32 +50,63 @@ def a_pending_anon_stage(
 @pytest.fixture
 def a_records_db() -> IDISSendRecords:
     """An initialised empty records database"""
-    return IDISSendRecords(get_memory_only_session())
+    return IDISSendRecords(get_memory_only_sessionmaker())
 
 
-def test_pending_anon(a_pending_anon_stage, mock_anon_client_tool, a_study):
-    """Pending should:
-     * send studies to IDIS
-     * check IDIS job progress
-     * send finished studies on
-     * deal with errored or stuck IDIS jobs
+@pytest.fixture
+def a_pending_anon_stage_with_data(
+        an_empty_pending_stage, some_studies) -> PendingAnon:
+    """A pending stage to which three studies have been pushed"""
+    for study in some_studies:
+        an_empty_pending_stage.push_study(study)
+    return an_empty_pending_stage
 
-    Check that this happens
+
+def test_idis_connection(an_idis_connection):
+    an_idis_connection.servers = [RemoteAnonServerFactory(name='server1'),
+                                  RemoteAnonServerFactory(name='server2')]
+    assert an_idis_connection.get_server('server1')
+    with pytest.raises(UnknownServerException):
+        an_idis_connection.get_server('unknown server')
+
+
+def test_pending_anon_push(an_empty_pending_stage, mock_anon_client_tool, a_study):
+    """Pending should create IDIS jobs when studies are pushed to it
      """
     # make sure initial state is as expected:
     assert len(mock_anon_client_tool.mock_calls) == 0  # No calls to IDIS
-    assert len(a_pending_anon_stage.records.get_all()) == 0  # No records
+    with an_empty_pending_stage.records.get_session() as session:
+        assert len(session.get_all()) == 0  # No records
 
-    # push some data to stage
-    a_pending_anon_stage.push_study(a_study)
+        # push some data to stage
+        an_empty_pending_stage.push_study(a_study)
 
-    # A job should have been made with IDIS
-    assert mock_anon_client_tool.create_path_job.called
+        # A job should have been made with IDIS
+        assert mock_anon_client_tool.create_path_job.called
 
-    # A record of this should have been made
-    assert len(a_pending_anon_stage.records.get_all()) == 1
+        # A record of this should have been made
+        assert len(session.get_all()) == 1
 
+
+def test_pending_anon_check_status(mock_anon_client_tool,
+                                   a_pending_anon_stage_with_data):
+    """A pending stage should be able to check on job status with IDIS
+    """
+
+    stage = a_pending_anon_stage_with_data
+    # make sure two different servers were used for creating jobs
+    stage.records.get_all()[0].server_name = stage.idis_connection.servers[0].name
+    stage.records.get_all()[1].server_name = stage.idis_connection.servers[1].name
+
+    # get record for each stage
+    studies = stage.get_all_studies()
+
+    # update all records for each stage with IDIS
+    stage.update_records(studies)
+
+    # get important groups: Studies finished, errored, still pending
     test = 1
+    pass
 
 
 def test_push_study(an_incoming_stage, some_stages):

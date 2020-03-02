@@ -1,6 +1,7 @@
 """Core concepts in idissend"""
 
 import shutil
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import List
@@ -126,9 +127,11 @@ class Stage:
 
     Notes
     -----
-    Responsibilities: A stage should know where data is exactly based on
-    stream and study
-
+    Responsibilities:
+    * A stage must know exactly where data is based on stream and study
+    * A stage can do internal bookkeeping with the studies it holds
+    * A stage must never push or pull studies by itself; moving data away from
+      or into a stage is done from the outside.
 
     """
     def __init__(self, name: str, path: Path, streams: List[Stream]):
@@ -176,17 +179,19 @@ class Stage:
             raise StudyPushException(f"Stream '{study.stream}' "
                                      f"does not exist in {self}")
 
-        original_stage = study.stage  # keep original for possible rollback
+        original_stage = deepcopy(study.stage)  # keep original for possible rollback
+        new_stage = self
 
-        source = str(original_stage.get_path_for_study(study))
-        destination = str(self.get_path_for_stream(study.stream))
         try:
-            shutil.move(source, destination)
+            shutil.move(str(original_stage.get_path_for_study(study)),
+                        str(new_stage.get_path_for_stream(study.stream)))
+            study.stage = new_stage
             return self.push_study_callback(study)
 
         except (IDISSendException, PushStudyCallbackException) as e:
             # roll back. move data back where it came from
-            shutil.move(destination, source)
+            shutil.move(str(new_stage.get_path_for_study(study)),
+                        str(original_stage.get_path_for_stream(study.stream)))
             raise StudyPushException(e)
         except (FileNotFoundError, OSError) as e:
             raise StudyPushException(e)

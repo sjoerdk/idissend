@@ -35,5 +35,5 @@ class PendingAnonRecord(Base):
     study_folder = Column(PathType)
     job_id = Column(Integer, unique=True)
     server_name = Column(String(length=256))
-    last_status = Column(Integer, unique=True)
+    last_status = Column(String(length=128))
     last_check = Column(DateTime)

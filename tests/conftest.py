@@ -13,9 +13,15 @@ from tests.factories import StreamFactory
 
 
 @pytest.fixture
-def a_study(an_incoming_stage) -> Study:
+def some_studies(an_incoming_stage) -> List[Study]:
+    """some studies in the incoming stage with some actual data on disk"""
+    return an_incoming_stage.get_all_studies()
+
+
+@pytest.fixture
+def a_study(some_studies) -> Study:
     """A study in the incoming stage with some actual data on disk"""
-    return an_incoming_stage.get_all_studies()[0]
+    return some_studies[0]
 
 
 @pytest.fixture

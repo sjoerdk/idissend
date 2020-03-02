@@ -1,11 +1,13 @@
 """Specific implementations of stages the data goes through"""
-
+from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
-from anonapi.client import AnonClientTool
+from anonapi.client import AnonClientTool, ClientToolException
 from anonapi.exceptions import AnonAPIException
 from anonapi.objects import RemoteAnonServer
+from anonapi.responses import JobInfo, JobsInfoList
 from sqlalchemy.exc import SQLAlchemyError
 
 from idissend.core import Stage, Stream, Study, PushStudyCallbackException
@@ -83,12 +85,28 @@ class IDISConnection:
     def __str__(self):
         return f"Connection with IDIS servers {[str(x) for x in self.servers]}"
 
+    def get_server(self, server_name) -> RemoteAnonServer:
+        """Find the IDIS server with the given name
+
+        Raises
+        ------
+        UnknownServerException
+            When no server can be found with that name
+        """
+        server = {x.name: x for x in self.servers}.get(server_name)
+        if server:
+            return server
+        else:
+            raise UnknownServerException(
+                f"Server '{server_name}' not found. Known s"
+                f"ervers:{[str(x) for x in self.servers]}")
+
 
 class PendingStudy(Study):
     """A study pending anonymization. Has additional links to check its status"""
 
     def __init__(
-        self, name: str, stream: Stream, stage: "Stage", record: PendingAnonRecord
+        self, name: str, stream: Stream, stage: Stage, record: PendingAnonRecord
     ):
         super(PendingStudy, self).__init__(name, stream, stage)
         self.record = record
@@ -101,18 +119,20 @@ class PendingStudy(Study):
         str
             One of anonapi.responses.JobStatus
         """
-        pass
+        return self.record.last_status
 
-    def update_status(self):
-        """Query IDIS to update the status of this study"""
-        pass
+    def last_check(self) -> Optional[datetime]:
+        """Date when the job for this study was last updated"""
+        return self.record.last_check
 
 
 class PendingAnon(Stage):
     """Stage where data is presented to IDIS for anonymization. Monitors progress
     of anonymization and removes data when anonymization is done or failed.
 
-    Communicates with IDIS to get info
+    * Caches job status in a local db
+    * Communicates with IDIS to get info if needed
+    * Returns PendingStudy objects instead of Study
     """
 
     def __init__(
@@ -143,7 +163,7 @@ class PendingAnon(Stage):
         self.idis_connection = idis_connection
         self.records = records
 
-    def push_study_callback(self, study: Study) -> Study:
+    def push_study_callback(self, study: Study) -> PendingStudy:
         """
         Parameters
         ----------
@@ -157,16 +177,17 @@ class PendingAnon(Stage):
 
         Returns
         -------
-        Study
+        PendingStudy
             The study after executing the callback
 
         """
 
         # * Create a job
         client = self.idis_connection.client_tool
+        server = self.idis_connection.servers[0]
         try:
             created = client.create_path_job(
-                server=self.idis_connection.servers[0],
+                server=server,
                 project_name=study.stream.idis_project,
                 source_path=study.path,
                 destination_path=study.stream.output_folder,
@@ -178,35 +199,94 @@ class PendingAnon(Stage):
 
         # save job id for this study to check back on later
         try:
-            self.records.add(
-                study_folder=study.path,
-                job_id=created.job_id,
-                server_name=study.stream.idis_project,
-            )
+            with self.records.get_session() as session:
+                record = session.add(
+                    study_folder=study.path,
+                    job_id=created.job_id,
+                    server_name=server.name
+                )
         except SQLAlchemyError as e:
             raise PushStudyCallbackException(e)
 
-        return study
+        return self.to_pending_study(study=study, record=record)
 
-    def get_pending_studies(self) -> List[PendingStudy]:
-        """All studies in this stage as PendingStudy objects"""
+    def get_all_studies(self) -> List[PendingStudy]:
+        """PendingAnon returns PendingStudy objects, which hold additional info on
+        IDIS job status """
+        studies = super().get_all_studies()
+        return [self.to_pending_study(x) for x in
+                studies]
 
-        return [self.to_pending_study(x) for x in self.get_all_studies()]
+    def get_studies(self, stream: Stream) -> List[PendingStudy]:
+        """Get all studies for the given stream
 
-    def to_pending_study(self, study: Study) -> PendingStudy:
-        """Find job information for this record and append
+        """
+        return [self.to_pending_study(x) for x in
+                super().get_studies(stream=stream)]
+
+    def to_pending_study(self, study: Study, record: PendingAnonRecord = None
+                         ) -> PendingStudy:
+        """Combine Study with a record, turning into PendingStudy. If record
+        is not given, look it up in records db
+
+        Parameters
+        ----------
+        study: Study
+            Study object to turn onto PendingStudy
+        record: PendingStudy, optional
+            The record to include with this study. If not given, look for
+            record based on study path
 
         Raises
         ------
         RecordNotFoundException
             If the given study has no record in the records database
         """
-        record = self.records.get_for_study_folder(study.path)
         if not record:
-            raise RecordNotFoundException(f"There is no record for  {study}")
+            record = self.records.get_for_study_folder(study.path)
+        if not record:
+            raise RecordNotFoundException(f"There is no record for {study}")
         return PendingStudy(
             name=study.name, stream=study.stream, stage=study.stage, record=record
         )
+
+    def get_server(self, server_name: str) -> RemoteAnonServer:
+        return self.idis_connection.get_server(server_name=server_name)
+
+    def update_records(self, studies: List[PendingStudy]) -> List[PendingStudy]:
+        """Contact IDIS to get updated status for all given studies"""
+        # group per server and do one query per server
+        servers = defaultdict(list)
+        for study in studies:
+            servers[self.get_server(study.record.server_name)].append(study)
+
+
+        for server in servers:
+            # get ids
+            studies = servers[server]
+            job_ids = [x.record.job_id for x in studies]
+            job_infos = self.get_job_info_list(server=server, job_ids=job_ids)
+
+            # insert status back into studies
+            {x.job_id: job_ids for x in job_infos}
+
+
+    def get_job_info_list(self,
+                          server: RemoteAnonServer,
+                          job_ids: List[int]) -> JobsInfoList:
+        """Contact IDIS server for updated info given jobs
+
+        Raises
+        ------
+        IDISCommunicationException
+            If anything goes wrong communicating with IDIS
+
+        """
+        try:
+            return self.idis_connection.client_tool.get_job_info_list(
+                server=server, job_ids=job_ids)
+        except ClientToolException as e:
+            IDISCommunicationException(e)
 
 
 class Trash(Stage):
@@ -219,4 +299,11 @@ class Trash(Stage):
 
 
 class RecordNotFoundException(IDISSendException):
+    pass
+
+class IDISCommunicationException(IDISSendException):
+    """Something went wrong getting info from IDIS"""
+    pass
+
+class UnknownServerException(IDISCommunicationException):
     pass

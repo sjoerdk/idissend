@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """Tests for `idissend` package."""
+from itertools import cycle
 from pathlib import Path
 from typing import List
 from unittest.mock import Mock
@@ -16,16 +17,11 @@ from anonapi.testresources import (
     RemoteAnonServerFactory,
 )
 
-from idissend.core import (
-    Incoming,
-    Stream,
-    Study,
-    PendingAnon,
-    Stage,
+from idissend.core import (Stream,
+    Study, Stage,
     StudyPushException,
-    PushStudyCallbackException,
-    IDISConnection,
-)
+    PushStudyCallbackException, )
+from idissend.stages import Incoming, IDISConnection, PendingAnon
 from idissend.persistence import IDISSendRecords, get_session, get_memory_only_session
 from tests import RESOURCE_PATH
 from tests.factories import MockIncomingFileFactory, StreamFactory, StudyFactory
@@ -95,15 +91,16 @@ def test_incoming_folder(an_incoming_stage):
     assert "project2" in [x.stream.name for x in studies]
 
 
-def test_cooldown():
+def test_cooldown(monkeypatch):
     """Studies are considered complete after a cooldown period. Does this work?"""
-    some_files = [
-        MockIncomingFileFactory(age=10),
-        MockIncomingFileFactory(age=11),
-        MockIncomingFileFactory(age=12),
-    ]
+    # a study with some files
+    some_files = [Path(), Path(), Path()]
     study: Study = StudyFactory()
     study.get_files = lambda: some_files  # don't check path on disk, just mock
+
+    # checking the age of these files will yield 10, 11, 12
+    monkeypatch.setattr("idissend.core.IncomingFile.age",
+                        Mock(side_effect=cycle([10, 11, 12])))
 
     assert study.is_older_than(5)
     assert not study.is_older_than(11)
@@ -168,6 +165,8 @@ def test_pending_anon(a_pending_anon_stage, mock_anon_client_tool, a_study):
 
     # A record of this should have been made
     assert len(a_pending_anon_stage.records.get_all()) == 1
+
+    test = 1
 
 
 def test_push_study(an_incoming_stage, some_stages):

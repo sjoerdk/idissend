@@ -2,7 +2,7 @@
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Iterable
 
 from anonapi.client import AnonClientTool, ClientToolException
 from anonapi.exceptions import AnonAPIException
@@ -111,6 +111,7 @@ class PendingStudy(Study):
         super(PendingStudy, self).__init__(name, stream, stage)
         self.record = record
 
+    @property
     def status(self) -> str:
         """Get last known status of IDIS job for this study from records
 
@@ -121,9 +122,15 @@ class PendingStudy(Study):
         """
         return self.record.last_status
 
+    @property
     def last_check(self) -> Optional[datetime]:
         """Date when the job for this study was last updated"""
         return self.record.last_check
+
+    @property
+    def job_id(self) -> int:
+        """IDIS job id for the job associated with this study"""
+        return self.record.job_id
 
 
 class PendingAnon(Stage):
@@ -205,6 +212,7 @@ class PendingAnon(Stage):
                     job_id=created.job_id,
                     server_name=server.name
                 )
+                test = record.server_name
         except SQLAlchemyError as e:
             raise PushStudyCallbackException(e)
 
@@ -243,7 +251,8 @@ class PendingAnon(Stage):
             If the given study has no record in the records database
         """
         if not record:
-            record = self.records.get_for_study_folder(study.path)
+            with self.records.get_session() as session:
+                record = session.get_for_study_folder(study.path)
         if not record:
             raise RecordNotFoundException(f"There is no record for {study}")
         return PendingStudy(
@@ -255,25 +264,39 @@ class PendingAnon(Stage):
 
     def update_records(self, studies: List[PendingStudy]) -> List[PendingStudy]:
         """Contact IDIS to get updated status for all given studies"""
-        # group per server and do one query per server
-        servers = defaultdict(list)
+        # group per IDIS server and do one query per server to get job infos
+        studies_per_server = defaultdict(list)
         for study in studies:
-            servers[self.get_server(study.record.server_name)].append(study)
+            studies_per_server[self.get_server(study.record.server_name)].append(study)
 
+        job_info_per_study = {}
+        for server in studies_per_server:
+            # get info from IDIS
+            job_infos = self.get_job_info_list(
+                server=server,
+                job_ids=[x.job_id for x in studies_per_server[server]])
 
-        for server in servers:
-            # get ids
-            studies = servers[server]
-            job_ids = [x.record.job_id for x in studies]
-            job_infos = self.get_job_info_list(server=server, job_ids=job_ids)
+            # associate what you get back with studies
+            for study in studies_per_server[server]:
+                # job infos might nog be in the same order, find them again
+                info = {x.job_id: x for x in job_infos}.get(study.job_id)
+                if not info:
+                    raise IDISCommunicationException(
+                        f"Could not find job {study.job_id} for {study} in {server}")
+                job_info_per_study[study] = info
 
-            # insert status back into studies
-            {x.job_id: job_ids for x in job_infos}
+        # now update all records with the gathered IDIS data
+        with self.records.get_session() as session:
+            for study, job_info in job_info_per_study.items():
+                study.record.status = job_info.status
+                study.record.last_check = datetime.now()
+                session.add_record(study.record)
 
+        return list(job_info_per_study.keys())
 
     def get_job_info_list(self,
                           server: RemoteAnonServer,
-                          job_ids: List[int]) -> JobsInfoList:
+                          job_ids: Iterable[int]) -> JobsInfoList:
         """Contact IDIS server for updated info given jobs
 
         Raises
@@ -284,7 +307,7 @@ class PendingAnon(Stage):
         """
         try:
             return self.idis_connection.client_tool.get_job_info_list(
-                server=server, job_ids=job_ids)
+                server=server, job_ids=list(job_ids))
         except ClientToolException as e:
             IDISCommunicationException(e)
 

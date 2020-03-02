@@ -94,19 +94,25 @@ def test_pending_anon_check_status(mock_anon_client_tool,
     """
 
     stage = a_pending_anon_stage_with_data
-    # make sure two different servers were used for creating jobs
-    stage.records.get_all()[0].server_name = stage.idis_connection.servers[0].name
-    stage.records.get_all()[1].server_name = stage.idis_connection.servers[1].name
+
+    with stage.records.get_session() as session:
+        # make sure two different servers were used for creating jobs
+        session.get_all()[0].server_name = stage.idis_connection.servers[0].name
+        session.get_all()[1].server_name = stage.idis_connection.servers[1].name
 
     # get record for each stage
     studies = stage.get_all_studies()
 
     # update all records for each stage with IDIS
-    stage.update_records(studies)
+    studies = stage.update_records(studies)
 
     # get important groups: Studies finished, errored, still pending
+    finished = [x for x in studies if x.status == JobStatus.DONE]
+    errored = [x for x in studies if x.status == JobStatus.ERROR]
+    still_going = [x for x in studies if x.status == JobStatus.ACTIVE]
+    cancelled = [x for x in studies if x.status == JobStatus.INACTIVE]
+
     test = 1
-    pass
 
 
 def test_push_study(an_incoming_stage, some_stages):
@@ -146,6 +152,9 @@ def test_push_study_exceptions(a_stage, a_study):
 def test_push_study_callback_fail(a_stage, a_study):
     """push callback fails for some reason on target stage
     """
+
+    assert len(a_study.stage.get_all_studies()) == 3
+    assert len(a_stage.get_all_studies()) == 0
 
     a_stage.push_study_callback = Mock(
         side_effect=PushStudyCallbackException("Something really went wrong here")

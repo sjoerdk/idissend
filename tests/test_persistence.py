@@ -9,7 +9,7 @@ def test_db(tmpdir):
     """Just very basic object creation in db. Check that it works as expected"""
 
     db_file = Path(tmpdir) / "test_db.sqlite"
-    session = get_db_sessionmaker(db_file)
+    session = get_db_sessionmaker(db_file)()
 
     study_folder = Path('/tmp/a_path')
     job_id = 123
@@ -25,7 +25,7 @@ def test_db(tmpdir):
     session.commit()
     session.close()
 
-    session = get_db_sessionmaker(db_file)
+    session = get_db_sessionmaker(db_file)()
     test = session.query(PendingAnonRecord).first()
     assert not test.last_check
     assert not test.last_status
@@ -37,7 +37,7 @@ def test_db(tmpdir):
     session.commit()
     session.close()
 
-    session = get_db_sessionmaker(db_file)
+    session = get_db_sessionmaker(db_file)()
     test = session.query(PendingAnonRecord).first()
     assert test.study_folder == study_folder
     assert test.last_check == last_check
@@ -73,6 +73,29 @@ def test_idis_send_records(tmpdir):
         assert len(session.get_all()) == 1
         assert session.get_for_job_id(99)
         assert not session.get_for_job_id(100)
+
+
+def test_object_field_persistence(tmpdir):
+    """Got into sqlalchemy object state trouble again.
+    So when you create an ORM object, add it to as session, Expunge the object,
+     close the session, why are all the object's fields inaccessible?
+
+    """
+    db_file = Path(tmpdir) / "test_db.sqlite"
+    records = IDISSendRecords(session_maker=get_db_sessionmaker(db_file))
+
+    with records.get_session() as session:
+        record = session.add(study_folder=Path("test"),
+                             job_id=1,
+                             server_name="test_server")
+    _ = record.server_name  # This should not raise an unbound exception
+
+    # now can be change this unbound object and then commit the results?
+    record.server_name = 'changed'
+    with records.get_session() as session:
+        session.add_record(record)
+    # yes
+
 
 
 

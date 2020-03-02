@@ -192,6 +192,7 @@ class Stage:
             # roll back. move data back where it came from
             shutil.move(str(new_stage.get_path_for_study(study)),
                         str(original_stage.get_path_for_stream(study.stream)))
+            study.stage = original_stage
             raise StudyPushException(e)
         except (FileNotFoundError, OSError) as e:
             raise StudyPushException(e)

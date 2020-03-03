@@ -69,6 +69,14 @@ class Incoming(Stage):
         """
         return study.is_older_than(self.cooldown)
 
+    def assert_all_paths(self):
+        """Make sure paths to this stage and all stream in it exist
+
+        Useful for initial testing of a stage: you don't have to remember
+        the exact paths for expected data"""
+        for stream in self.streams:
+            self.get_path_for_stream(stream).mkdir(parents=True, exist_ok=True)
+
 
 class IDISConnection:
     """Everything you need to talk to the IDIS anonymization server"""
@@ -198,9 +206,9 @@ class PendingAnon(Stage):
                 server=server,
                 project_name=study.stream.idis_project,
                 source_path=study.path,
-                destination_path=study.stream.output_folder,
+                destination_path=self.get_path_for_stream(stream=study.stream),
                 description=f"Created by idissend for stream " f"{study.stream}",
-                pims_keyfile_id=study.stream.idis_project,
+                pims_keyfile_id=study.stream.pims_key,
             )
         except AnonAPIException as e:
             raise PushStudyCallbackException(e)
@@ -327,7 +335,9 @@ class Trash(Stage):
     Can be emptied kind of prudently (Keep as much as possible but also keep
     enough space left)"""
 
-    pass
+    def empty(self):
+        """remove data from trash"""
+        pass
 
 
 class RecordNotFoundException(IDISSendException):

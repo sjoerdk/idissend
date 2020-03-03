@@ -26,8 +26,9 @@ class Stream:
 
     Notes
     -----
-    Responsibilities: A stream should not know about where the data it contains
-    is exactly. This is the responsibility of each Stage
+    Responsibilities: A stream is a passive data structure. It should not know about
+    where the data it contains is exactly. This is the responsibility of each Stage
+    that a stream is in
 
     """
 
@@ -46,7 +47,7 @@ class Stream:
         name: str
             Name of this stream, doubles as folder name
         output_folder: Path
-            Write anonymized data to this folder
+            Final destination of the data. Full UNC path
         idis_project:
             Use the settings in this project for anonymization
         pims_key:
@@ -160,6 +161,21 @@ class Stage:
     def __str__(self):
         return self.name
 
+    def push_studies(self, studies: List[Study]) -> List[Study]:
+        """Insert each study into this stage
+
+        Raises
+        ------
+        StudyPushException:
+            When pushing any study does not work for some reason
+        """
+
+        pushed = []
+        for study in studies:
+            pushed.append(self.push_study(study))
+
+        return pushed
+
     def push_study(self, study: Study) -> Study:
         """Push the given study to this stage. Optionally set stream.
 
@@ -176,7 +192,7 @@ class Stage:
         Returns
         -------
         Study:
-            The study after pushing to this stage
+            The study after pushing to this stage. New object
 
         """
         if study.stream in self.streams:
@@ -186,24 +202,24 @@ class Stage:
                 f"Stream '{study.stream}' " f"does not exist in {self}"
             )
 
-        original_stage = deepcopy(study.stage)  # keep original for possible rollback
-        new_stage = self
+        # create new study that is in this stage
+        original_study = study  # keep original for possible rollback
+        new_study = Study(name=study.name, stream=study.stream, stage=self)
 
+        # now move the data from original to new
         try:
             shutil.move(
-                str(original_stage.get_path_for_study(study)),
-                str(new_stage.get_path_for_stream(study.stream)),
+                str(original_study.path),
+                str(new_study.stage.get_path_for_stream(study.stream)),
             )
-            study.stage = new_stage
-            return self.push_study_callback(study)
+            return self.push_study_callback(new_study)
 
         except (IDISSendException, PushStudyCallbackException) as e:
             # roll back. move data back where it came from
             shutil.move(
-                str(new_stage.get_path_for_study(study)),
-                str(original_stage.get_path_for_stream(study.stream)),
+                str(new_study.path),
+                str(original_study.stage.get_path_for_stream(study.stream)),
             )
-            study.stage = original_stage
             raise StudyPushException(e)
         except (FileNotFoundError, OSError) as e:
             raise StudyPushException(e)

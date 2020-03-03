@@ -34,7 +34,7 @@ class StreamFactory(factory.Factory):
         model = Stream
 
     name = factory.sequence(lambda n: f"stream_{n}")
-    output_folder = factory.sequence(lambda n: Path(f"mock_path_{n}"))
+    output_folder = factory.sequence(lambda n: Path(f"output_folder_for_stream_{n}"))
     idis_project = factory.sequence(lambda n: f"idis_project_{n}")
     pims_key = factory.sequence(lambda n: f"111{n}")
     contact = factory.SubFactory(PersonFactory)

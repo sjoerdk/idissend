@@ -1,5 +1,5 @@
 """Core concepts in idissend"""
-
+import logging
 import shutil
 
 from copy import deepcopy
@@ -157,6 +157,7 @@ class Stage:
         self.name = name
         self.path = path
         self.streams = streams
+        self.logger = logging.getLogger(f'<stage> {self.name}')
 
     def __str__(self):
         return self.name
@@ -195,6 +196,7 @@ class Stage:
             The study after pushing to this stage. New object
 
         """
+        self.logger.info(f'receiving {study}')
         if study.stream in self.streams:
             self._assert_path_for_stream(study.stream)
         else:
@@ -215,6 +217,7 @@ class Stage:
             return self.push_study_callback(new_study)
 
         except (IDISSendException, PushStudyCallbackException) as e:
+            self.logger.warning(f'receiving {study} failed: {e}. Rolling back.')
             # roll back. move data back where it came from
             shutil.move(
                 str(new_study.path),
@@ -222,6 +225,7 @@ class Stage:
             )
             raise StudyPushException(e)
         except (FileNotFoundError, OSError) as e:
+            self.logger.warning(f'receiving {study} failed: {e}')
             raise StudyPushException(e)
 
     def push_study_callback(self, study: Study):

@@ -206,10 +206,12 @@ class PendingAnon(Stage):
                 server=server,
                 project_name=study.stream.idis_project,
                 source_path=study.path,
-                destination_path=self.get_path_for_stream(stream=study.stream),
+                destination_path=study.stream.output_folder,
                 description=f"Created by idissend for stream " f"{study.stream}",
                 pims_keyfile_id=study.stream.pims_key,
             )
+            self.logger.info(f'Created IDIS job {created.job_id} on {server} '
+                             f'for {study}')
         except AnonAPIException as e:
             raise PushStudyCallbackException(e)
 

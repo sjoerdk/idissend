@@ -122,6 +122,7 @@ def print_status(stages: List[Stage]):
 logging.basicConfig(format="%(asctime)s %(name)-40s %(levelname)-8s %(message)s")
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
+
 logger.info("Running once")
 
 

@@ -30,7 +30,7 @@ IDIS_TOKEN = 'a_token'
 IDIS_WEB_API_SERVER_URL = 'https://umcradanonp11.umcn.nl/p01'  # Talk to IDIS through this
 IDIS_WEB_API_SERVER_NAME = 'p01'  # Name to use in log messages
 
-OUTPUT_BASE_PATH = Path(r'\\server\path')
+OUTPUT_BASE_PATH = Path(r'\\server\path')  # let IDIS write all data here
 
 # init #
 STAGES_BASE_PATH.mkdir(parents=True, exist_ok=True)  # assert base dir exists

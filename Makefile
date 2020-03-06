@@ -82,16 +82,17 @@ idissend_package_name := $(shell python setup.py --fullname)
 idissend_wheel_filename := $(idissend_package_name)-py2.py3-none-any.whl
 idissend_wheel_path = dist/$(idissend_wheel_filename)
 
-vars/idissend_make_vars.yml: vars
+vars/idissend_make_vars.yml: vars force
 
 	@echo "idissend_package_version: \"$(idissend_package_version)\"" > $@
 	@echo "idissend_package_name: \"$(idissend_package_name)\"" >> $@
 	@echo "idissend_wheel_filename: \"$(idissend_wheel_filename)\"" >> $@
 	@echo "idissend_wheel_path: \"$(idissend_wheel_path)\"" >> $@
 
+force:  # trick make into always running any target that requires this
+
 clean_vars:
 	rm vars/idissend_make_vars.yml
-	rmdir vars
 
 servedocs: docs ## compile the docs watching for changes
 	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .

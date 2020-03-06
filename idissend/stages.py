@@ -219,7 +219,7 @@ class PendingAnon(Stage):
 
         try:
             created = client.create_path_job(
-                server=server.url,
+                server=server,
                 project_name=study.stream.idis_project,
                 source_path=source_path,
                 destination_path=destination_path,

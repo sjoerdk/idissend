@@ -79,13 +79,15 @@ vars:
 
 idissend_package_version := $(shell python setup.py --version)
 idissend_package_name := $(shell python setup.py --fullname)
-idissend_wheel_package_path = dist/$(idissend_package_name)-py2.py3-none-any.whl
+idissend_wheel_filename := $(idissend_package_name)-py2.py3-none-any.whl
+idissend_wheel_path = dist/$(idissend_wheel_filename)
 
 vars/idissend_make_vars.yml: vars
 
 	@echo "idissend_package_version: \"$(idissend_package_version)\"" > $@
 	@echo "idissend_package_name: \"$(idissend_package_name)\"" >> $@
-	@echo "idissend_package_path: \"$(idissend_wheel_package_path)\"" >> $@
+	@echo "idissend_wheel_filename: \"$(idissend_wheel_filename)\"" >> $@
+	@echo "idissend_wheel_path: \"$(idissend_wheel_path)\"" >> $@
 
 clean_vars:
 	rm vars/idissend_make_vars.yml

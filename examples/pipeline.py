@@ -10,6 +10,7 @@ from typing import List
 
 from anonapi.client import AnonClientTool
 from anonapi.objects import RemoteAnonServer
+from anonapi.paths import UNCMapping, UNCMap, UNCPath
 from anonapi.responses import JobStatus
 
 from idissend.core import Stream, Person, Stage
@@ -34,6 +35,11 @@ OUTPUT_BASE_PATH = Path(r'\\server\path')  # let IDIS write all data here
 
 # init #
 STAGES_BASE_PATH.mkdir(parents=True, exist_ok=True)  # assert base dir exists
+
+# Indicate which local paths correspond to which UNC paths.
+# This makes it possible to expose local data to IDIS servers
+unc_mapping = UNCMapping(
+    [UNCMap(local=Path('/'), unc=UNCPath(r'\\server\share'))])
 
 # streams #
 # the different routes data can take through the pipeline. Data will always stay
@@ -74,7 +80,8 @@ pending = PendingAnon(name='pending',
                       path=STAGES_BASE_PATH / 'pending',
                       streams=streams,
                       idis_connection=connection,
-                      records=records
+                      records=records,
+                      unc_mapping=unc_mapping
                       )
 
 errored = Stage(name='errored',

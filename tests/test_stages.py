@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 from anonapi.client import ClientToolException
-from anonapi.paths import UNCPath
+from anonapi.paths import UNCPath, UNCMapping, UNCMap
 from anonapi.responses import JobsInfoList
 from anonapi.testresources import (
     RemoteAnonServerFactory,
@@ -106,14 +106,20 @@ def test_pending_anon_push_unc_paths(an_empty_pending_stage, mock_anon_client_to
     """ Created jobs should have UNC input and output. Otherwise IDIS will just
     choke on them (design flaw definitely)"""
 
-    # set up a study on local disk, that has destination defined as local path as well
-    # this cannot be sent to IDIS like this.
+    # study with local source and destination. As is these paths make no sense
+    # on an IDIS server
 
-    source_path = a_study.get_path()
-    destination_path = Path('/localpath')
-    a_stream = StreamFactory(output_folder=destination_path)
+    a_stream = StreamFactory(output_folder=Path('/mnt/datashare/some/folder'))
     an_empty_pending_stage.streams.append(a_stream)
-    an_empty_pending_stage.push_study(a_study, a_stream)
+
+    # map local paths to UNC paths to make translation possible
+    mapping = UNCMapping(
+        maps=[UNCMap(local=Path('/'), unc=UNCPath(r'\\server\share')),
+              UNCMap(local=Path('/mnt/datashare'),
+                     unc=UNCPath(r'\\dataserver\datashare'))])
+    an_empty_pending_stage.unc_mapping = mapping
+
+    new_study = an_empty_pending_stage.push_study(a_study, a_stream)
 
     # A job should have been made with IDIS
     assert mock_anon_client_tool.create_path_job.called
@@ -124,6 +130,13 @@ def test_pending_anon_push_unc_paths(an_empty_pending_stage, mock_anon_client_to
 
     assert UNCPath.is_unc(idis_source_path)
     assert UNCPath.is_unc(idis_destination_path)
+
+    # If a path is set that cannot be translated the push should fail
+    a_stream = StreamFactory(output_folder=Path(r"C:\data"))
+    an_empty_pending_stage.streams.append(a_stream)
+    with pytest.raises(StudyPushException) as e:
+        an_empty_pending_stage.push_study(new_study, a_stream)
+    assert 'could not be mapped' in str(e)
 
 
 def test_pending_anon_push_idis_exception(

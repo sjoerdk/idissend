@@ -3,6 +3,7 @@
 from anonapi.client import AnonClientTool, ClientToolException
 from anonapi.exceptions import AnonAPIException
 from anonapi.objects import RemoteAnonServer
+from anonapi.paths import UNCMapping, UNCMappingException
 from anonapi.responses import JobsInfoList
 from collections import defaultdict
 from datetime import datetime
@@ -157,6 +158,8 @@ class PendingAnon(Stage):
         streams: List[Stream],
         idis_connection: IDISConnection,
         records: IDISSendRecords,
+        unc_mapping: UNCMapping = None
+
     ):
         """
 
@@ -172,11 +175,15 @@ class PendingAnon(Stage):
             Used for communicating with IDIS
         records: IDISSendRecords
             Persistent storage for which studies have been sent to IDIS
+        unc_mapping: UNCMapping, optional
+            Translates any local paths to their UNC equivalents, making sure
+            only UNC paths get sent to IDIS. If not given, use any paths as-is
         """
 
         super(PendingAnon, self).__init__(name=name, path=path, streams=streams)
         self.idis_connection = idis_connection
         self.records = records
+        self.unc_mapping = unc_mapping
 
     def push_study_callback(self, study: Study) -> PendingStudy:
         """Creates an IDIS job for the given study
@@ -198,15 +205,24 @@ class PendingAnon(Stage):
 
         """
 
-        # * Create a job
+        # Create a job
         client = self.idis_connection.client_tool
         server = self.idis_connection.servers[0]
+        source_path = study.get_path()
+        destination_path = study.stream.output_folder
+        if self.unc_mapping:
+            try:
+                source_path = self.unc_mapping.to_unc(source_path)
+                destination_path = self.unc_mapping.to_unc(destination_path)
+            except UNCMappingException as e:
+                raise PushStudyCallbackException(e)
+
         try:
             created = client.create_path_job(
                 server=server,
                 project_name=study.stream.idis_project,
-                source_path=study.get_path(),
-                destination_path=study.stream.output_folder,
+                source_path=source_path,
+                destination_path=destination_path,
                 description=f"Created by idissend for stream " f"{study.stream}",
                 pims_keyfile_id=study.stream.pims_key,
             )

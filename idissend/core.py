@@ -98,14 +98,13 @@ class Study:
     def __str__(self):
         return f"{self.stream}:{self.name}"
 
-    @property
-    def path(self) -> Path:
+    def get_path(self) -> Path:
         """Full path to the folder that data for this study is in"""
         return self.stage.get_path_for_study(self)
 
     def get_files(self) -> List[Path]:
         """All files directly in this folder (no recursing)"""
-        return [x for x in self.path.glob("*") if x.is_file()]
+        return [x for x in self.get_path().glob("*") if x.is_file()]
 
     def age(self) -> float:
         """Minutes since last modification of any file in this study"""
@@ -177,13 +176,15 @@ class Stage:
 
         return pushed
 
-    def push_study(self, study: Study) -> Study:
+    def push_study(self, study: Study, stream: Stream = None) -> Study:
         """Push the given study to this stage. Optionally set stream.
 
         Parameters
         ----------
         study: Study
             Send the data in this study
+        stream: Stream, optional
+            If given, push to this stream. Otherwise use study.stream
 
         Raises
         ------
@@ -197,22 +198,25 @@ class Stage:
 
         """
         self.logger.info(f'receiving {study}')
-        if study.stream in self.streams:
-            self._assert_path_for_stream(study.stream)
+        if not stream:
+            stream = study.stream
+
+        if stream in self.streams:
+            self.assert_path_for_stream(stream)
         else:
             raise StudyPushException(
-                f"Stream '{study.stream}' " f"does not exist in {self}"
+                f"Stream '{stream}' " f"does not exist in {self}"
             )
 
         # create new study that is in this stage
         original_study = study  # keep original for possible rollback
-        new_study = Study(name=study.name, stream=study.stream, stage=self)
+        new_study = Study(name=study.name, stream=stream, stage=self)
 
         # now move the data from original to new
         try:
             shutil.move(
-                str(original_study.path),
-                str(new_study.stage.get_path_for_stream(study.stream)),
+                str(original_study.get_path()),
+                str(new_study.stage.get_path_for_stream(stream)),
             )
             return self.push_study_callback(new_study)
 
@@ -220,7 +224,7 @@ class Stage:
             self.logger.warning(f'receiving {study} failed: {e}. Rolling back.')
             # roll back. move data back where it came from
             shutil.move(
-                str(new_study.path),
+                str(new_study.get_path()),
                 str(original_study.stage.get_path_for_stream(study.stream)),
             )
             raise StudyPushException(e)
@@ -257,9 +261,8 @@ class Stage:
 
         return self.path / stream.name
 
-    def _assert_path_for_stream(self, stream: Stream) -> Path:
-        """Create path for stream if it does not exist. Should not be called
-        directly. Use add_stream() instead """
+    def assert_path_for_stream(self, stream: Stream) -> Path:
+        """Create path for stream if it does not exist"""
         path = self.get_path_for_stream(stream)
         path.mkdir(parents=True, exist_ok=True)
         return path

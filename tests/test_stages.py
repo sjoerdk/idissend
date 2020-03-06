@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 from anonapi.client import ClientToolException
+from anonapi.paths import UNCPath
 from anonapi.responses import JobsInfoList
 from anonapi.testresources import (
     RemoteAnonServerFactory,
@@ -19,6 +20,7 @@ from idissend.stages import (
     UnknownServerException,
     IDISCommunicationException,
 )
+from tests.factories import StudyFactory, StreamFactory
 
 
 @pytest.fixture
@@ -98,6 +100,30 @@ def test_pending_anon_push(an_empty_pending_stage, mock_anon_client_tool, a_stud
 
         # A record of this should have been made
         assert len(session.get_all()) == 1
+
+
+def test_pending_anon_push_unc_paths(an_empty_pending_stage, mock_anon_client_tool, a_study):
+    """ Created jobs should have UNC input and output. Otherwise IDIS will just
+    choke on them (design flaw definitely)"""
+
+    # set up a study on local disk, that has destination defined as local path as well
+    # this cannot be sent to IDIS like this.
+
+    source_path = a_study.get_path()
+    destination_path = Path('/localpath')
+    a_stream = StreamFactory(output_folder=destination_path)
+    an_empty_pending_stage.streams.append(a_stream)
+    an_empty_pending_stage.push_study(a_study, a_stream)
+
+    # A job should have been made with IDIS
+    assert mock_anon_client_tool.create_path_job.called
+
+    # and the paths should be UNC
+    idis_source_path = mock_anon_client_tool.create_path_job.call_args[1]['source_path']
+    idis_destination_path = mock_anon_client_tool.create_path_job.call_args[1]['destination_path']
+
+    assert UNCPath.is_unc(idis_source_path)
+    assert UNCPath.is_unc(idis_destination_path)
 
 
 def test_pending_anon_push_idis_exception(

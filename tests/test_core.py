@@ -63,7 +63,8 @@ def test_push_study_exception_missing_stream(a_stage, a_study):
 def test_push_study_exceptions(a_stage, a_study):
     """ Data does not exist for study (unexpected but not impossible)
     """
-    a_study.path.rename(a_study.path.parent / "removed")  # now study has no data
+    # remove data for study
+    a_study.get_path().rename(a_study.get_path().parent / "removed")
     with pytest.raises(StudyPushException):
         a_stage.push_study(a_study)
 

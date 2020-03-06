@@ -205,7 +205,7 @@ class PendingAnon(Stage):
             created = client.create_path_job(
                 server=server,
                 project_name=study.stream.idis_project,
-                source_path=study.path,
+                source_path=study.get_path(),
                 destination_path=study.stream.output_folder,
                 description=f"Created by idissend for stream " f"{study.stream}",
                 pims_keyfile_id=study.stream.pims_key,
@@ -219,7 +219,7 @@ class PendingAnon(Stage):
         try:
             with self.records.get_session() as session:
                 record = session.add(
-                    study_folder=study.path,
+                    study_folder=study.get_path(),
                     job_id=created.job_id,
                     server_name=server.name,
                 )
@@ -262,7 +262,7 @@ class PendingAnon(Stage):
         """
         if not record:
             with self.records.get_session() as session:
-                record = session.get_for_study_folder(study.path)
+                record = session.get_for_study_folder(study.get_path())
         if not record:
             raise RecordNotFoundException(f"There is no record for {study}")
         return PendingStudy(

@@ -73,6 +73,24 @@ docs: ## generate Sphinx HTML documentation, including API docs
 	$(MAKE) -C docs html
 	$(BROWSER) docs/_build/html/index.html
 
+vars:
+	mkdir vars
+
+
+idissend_package_version := $(shell python setup.py --version)
+idissend_package_name := $(shell python setup.py --fullname)
+idissend_wheel_package_path = dist/$(idissend_package_name)-py2.py3-none-any.whl
+
+vars/idissend_make_vars.yml: vars
+
+	@echo "idissend_package_version: \"$(idissend_package_version)\"" > $@
+	@echo "idissend_package_name: \"$(idissend_package_name)\"" >> $@
+	@echo "idissend_package_path: \"$(idissend_wheel_package_path)\"" >> $@
+
+clean_vars:
+	rm vars/idissend_make_vars.yml
+	rmdir vars
+
 servedocs: docs ## compile the docs watching for changes
 	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .
 
@@ -83,6 +101,8 @@ dist: clean ## builds source and wheel package
 	python setup.py sdist
 	python setup.py bdist_wheel
 	ls -l dist
+
+dist-and-vars: dist vars/idissend_make_vars.yml ## build source and wheel and write ansible yml vars
 
 install: clean ## install the package to the active Python's site-packages
 	python setup.py install

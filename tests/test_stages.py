@@ -24,49 +24,6 @@ from tests.factories import StudyFactory, StreamFactory
 
 
 @pytest.fixture
-def mock_anon_client_tool(monkeypatch):
-    """An anonymization API client tool that does not hit the server but returns
-    some example responses instead. Also records calls"""
-    some_responses = [
-        JobInfoFactory(status=JobStatus.DONE),
-        JobInfoFactory(status=JobStatus.ERROR),
-        JobInfoFactory(status=JobStatus.INACTIVE),
-    ]
-    # mock wrapper to be able to record responses
-    return Mock(wraps=MockAnonClientTool(responses=some_responses))
-
-
-@pytest.fixture
-def an_idis_connection(mock_anon_client_tool):
-    """An idis connection that mocks repsonses and does not hit any server"""
-    return IDISConnection(
-        client_tool=mock_anon_client_tool,
-        servers=[RemoteAnonServerFactory(), RemoteAnonServerFactory()],
-    )
-
-
-@pytest.fixture()
-def an_empty_pending_stage(
-    some_streams, an_idis_connection, tmpdir, a_records_db
-) -> PendingAnon:
-    """An empty pending stage with a mocked connection to IDIS and mocked records db
-    """
-    return PendingAnon(
-        name="pending",
-        path=Path(tmpdir) / "pending_anon",
-        streams=some_streams,
-        idis_connection=an_idis_connection,
-        records=a_records_db,
-    )
-
-
-@pytest.fixture
-def a_records_db() -> IDISSendRecords:
-    """An initialised empty records database"""
-    return IDISSendRecords(get_memory_only_sessionmaker())
-
-
-@pytest.fixture
 def a_pending_anon_stage_with_data(an_empty_pending_stage, some_studies) -> PendingAnon:
     """A pending stage to which three studies have been pushed"""
     for study in some_studies:

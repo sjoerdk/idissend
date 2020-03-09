@@ -1,8 +1,7 @@
-"""An example of a pipeline receiving data and sending it to IDIS.
-
-streams and users are all hardcoded in this minimal example, but will probably
-be in a database for production
+""" core and stages define the pieces of a pipeline,
+this module has classes and methods for the relationships between them
 """
+
 
 import logging
 from pathlib import Path
@@ -15,7 +14,6 @@ from anonapi.responses import JobStatus
 
 from idissend.core import Stream, Person, Stage
 from idissend.persistence import IDISSendRecords, get_db_sessionmaker
-from idissend.pipeline import DefaultPipeline
 from idissend.stages import Incoming, PendingAnon, IDISConnection, Trash
 
 # parameters #
@@ -97,19 +95,65 @@ trash = Trash(name='trash',
               path=STAGES_BASE_PATH / 'trash',
               streams=streams)
 
-pipeline = DefaultPipeline(incoming=incoming,
-                           pending=pending,
-                           finished=finished,
-                           trash=trash,
-                           errored=errored)
 
+class DefaultPipeline:
+    """Standard version of a idissend pipeline: data comes in, is exposed to IDIS for
+    anonymization, then ends up in completed. There are trash and errorred stages to hold
+    studies if needed"""
 
-logging.basicConfig(format="%(asctime)s %(name)-40s %(levelname)-8s %(message)s")
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+    def __init__(self,
+                 incoming: Incoming,
+                 pending: PendingAnon,
+                 finished: Stage,
+                 trash: Trash,
+                 errored: Stage):
+        """
 
-logger.info("Running once")
+        Parameters
+        ----------
+        incoming: Incoming
+            Data comes in here
+        pending: PendingAnon
+            Data waits here to be downloaded and anonymized by IDIS
+        finished: Stage
+            When IDIS is done, move the data from pending here
+        trash: Trash
+            Any study here can be removed when needed
+        errored:
+            Holds studies with errors, either in IDIS or in pipeline itself
+        """
+        self.incoming = incoming
+        self.pending = pending
+        self.finished = finished
+        self.trash = trash
+        self.errored = errored
+        self.all_stages = [incoming, pending, finished, trash, errored]
 
-pipeline.incoming.incoming.assert_all_paths()
-pipeline.print_status()
-pipeline.run_once()
+    def run_once(self):
+        """Check each stage and perform actions one time"""
+
+        # update the IDIS job status of studies in pending stage
+        studies = self.pending.get_all_studies()
+        self.pending.update_records(studies)
+
+        # deal with different groups of studies
+        self.finished.push_studies(
+            [x for x in studies if x.last_status == JobStatus.DONE])
+        self.trash.push_studies(
+            [x for x in studies if x.last_status == JobStatus.INACTIVE])
+        self.errored.push_studies(
+            [x for x in studies if x.last_status == JobStatus.ERROR])
+
+        # check for new studies coming in
+        cooled_down = self.incoming.get_all_studies(only_cooled=True)
+        self.pending.push_studies(cooled_down)
+
+        # empty trash if needed (disable for now)
+        self.trash.empty()
+
+    def print_status(self):
+        for stage in self.all_stages:
+            studies = stage.get_all_studies()
+            print(f"{stage} at {stage.path} contains {len(studies)} "
+                  f"studies: {[str(x) for x in studies]}")
+

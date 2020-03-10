@@ -156,27 +156,30 @@ class DefaultPipeline:
         """
 
         self.logger.info("Running once")
+        try:
+            studies = self.pending.get_all_studies()
+            self.logger.debug(f"Updating IDIS status for {len(studies)} pending jobs")
+            self.pending.update_records(studies)
 
-        studies = self.pending.get_all_studies()
-        self.logger.debug(f"Updating IDIS status for {len(studies)} pending jobs")
-        self.pending.update_records(studies)
+            self.logger.debug("Taking action based on IDIS status")
 
-        self.logger.debug("Taking action based on IDIS status")
+            self.finished.push_studies(
+                [x for x in studies if x.last_status == JobStatus.DONE])
+            self.trash.push_studies(
+                [x for x in studies if x.last_status == JobStatus.INACTIVE])
+            self.errored.push_studies(
+                [x for x in studies if x.last_status == JobStatus.ERROR])
 
-        self.finished.push_studies(
-            [x for x in studies if x.last_status == JobStatus.DONE])
-        self.trash.push_studies(
-            [x for x in studies if x.last_status == JobStatus.INACTIVE])
-        self.errored.push_studies(
-            [x for x in studies if x.last_status == JobStatus.ERROR])
+            self.logger.debug("Checking for new studies coming in")
+            cooled_down = self.incoming.get_all_studies(only_cooled=True)
+            self.logger.debug(f"Found {len(cooled_down)}. Pushing to pending")
+            self.pending.push_studies(cooled_down)
 
-        self.logger.debug("Checking for new studies coming in")
-        cooled_down = self.incoming.get_all_studies(only_cooled=True)
-        self.logger.debug(f"Found {len(cooled_down)}. Pushing to pending")
-        self.pending.push_studies(cooled_down)
-
-        self.logger.debug("empty trash if needed")
-        self.trash.empty()
+            self.logger.debug("empty trash if needed")
+            self.trash.empty()
+        except IDISSendException as e:
+            self.logger.error(e)
+            raise
 
     def get_status(self) -> str:
         """Status for all stages"""

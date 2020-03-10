@@ -280,7 +280,8 @@ class PendingAnon(Stage):
             with self.records.get_session() as session:
                 record = session.get_for_study_folder(study.get_path())
         if not record:
-            raise RecordNotFoundException(f"There is no record for {study}")
+            raise RecordNotFoundException(
+                f"{str(self)}: There is no record for {study}")
         return PendingStudy(
             name=study.name, stream=study.stream, stage=study.stage, record=record
         )

@@ -2,7 +2,6 @@
 import logging
 import shutil
 
-from copy import deepcopy
 from datetime import datetime
 from idissend.exceptions import IDISSendException
 from pathlib import Path
@@ -278,12 +277,19 @@ class Stage:
 
         studies = []
         for stream in self.streams:
-            studies += self.get_studies(stream)
+            studies += self._get_studies(stream)
 
         return studies
 
     def get_studies(self, stream: Stream) -> List[Study]:
         """Get all studies for the given stream
+
+        """
+        return self._get_studies(stream=stream)
+
+    def _get_studies(self, stream: Stream) -> List[Study]:
+        """hidden method because get_studies itself can be overwritten in parent
+        classes
 
         """
         studies = []

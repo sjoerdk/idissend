@@ -14,12 +14,9 @@ from anonapi.testresources import (
 
 from idissend.core import StudyPushException
 from idissend.persistence import IDISSendRecords, get_memory_only_sessionmaker
-from idissend.stages import (
-    PendingAnon,
-    IDISConnection,
-    UnknownServerException,
-    IDISCommunicationException,
-)
+from idissend.stages import (PendingAnon, IDISConnection, UnknownServerException,
+                             IDISCommunicationException, RecordNotFoundException,
+                             Trash)
 from tests.factories import StudyFactory, StreamFactory
 
 
@@ -29,6 +26,15 @@ def a_pending_anon_stage_with_data(an_empty_pending_stage, some_studies) -> Pend
     for study in some_studies:
         an_empty_pending_stage.push_study(study)
     return an_empty_pending_stage
+
+
+@pytest.fixture
+def a_trash_stage(a_pending_anon_stage_with_data, tmpdir):
+    """A trash stage with temp path on disk and the same streams as
+    a_pending_anon_stage_with_data"""
+    return Trash(name='Trash',
+                 streams=a_pending_anon_stage_with_data.streams,
+                 path=Path(tmpdir)/'trash')
 
 
 def test_idis_connection(an_idis_connection):
@@ -170,5 +176,36 @@ def test_pending_anon_check_status_exceptions(
 
     with pytest.raises(IDISCommunicationException):
         stage.update_records(studies)
+
+
+def test_pending_anon_missing_record(a_pending_anon_stage_with_data,
+                                     a_trash_stage,
+                                     mock_anon_client_tool,
+                                     a_records_db):
+    """Pending stage should be able to handle missing records
+     """
+    # This stage has 3 studies already pushed to it. Verify studies,
+    # IDIS jobs and records
+    pending = a_pending_anon_stage_with_data
+    assert len(pending.get_all_studies()) == 3
+    with a_records_db.get_session() as session:
+        assert len(session.get_all()) == 3
+
+    # now something bad happens for some reason. One record is lost!
+    with a_records_db.get_session() as session:
+        session.delete(session.get_all()[0])
+
+    # regular get_all_studies will fail because missing record
+    with pytest.raises(RecordNotFoundException):
+        pending.get_all_studies()
+
+    # however you can obtain the studies that cause the exception and remove them
+    orphaned = pending.get_all_orphaned_studies()
+    a_trash_stage.push_studies(orphaned)
+
+    # now the remaining studies can be obtained again
+    assert len(pending.get_all_studies()) == 2
+
+
 
 

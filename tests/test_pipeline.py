@@ -11,10 +11,9 @@ from anonapi.client import ClientToolException
 from sqlalchemy.exc import SQLAlchemyError
 
 from idissend.core import Stage
-from idissend.persistence import IDISSendRecordsSession
 from idissend.exceptions import IDISSendException
 from idissend.pipeline import DefaultPipeline
-from idissend.stages import Trash, IDISCommunicationException
+from idissend.stages import Trash, IDISCommunicationException, RecordNotFoundException
 
 
 @pytest.fixture
@@ -48,7 +47,7 @@ def test_pipline_regular_operation(a_pipeline, caplog):
     assert "Running once" in caplog.text
 
 
-def test_pipline_IDIS_exceptions(a_pipeline, caplog, an_idis_connection):
+def test_pipeline_idis_exceptions(a_pipeline, caplog, an_idis_connection):
     """What happens when IDIS connection fails"""
 
     an_idis_connection.client_tool.get_job_info_list = Mock(
@@ -65,16 +64,24 @@ def test_pipline_IDIS_exceptions(a_pipeline, caplog, an_idis_connection):
     assert status_before == a_pipeline.get_status()  # nothing should have changed
 
 
-def test_pipline_records_exceptions(a_pipeline, caplog, monkeypatch):
-    """What happens when Records db connection fails"""
+def test_pipeline_record_not_found_exception(a_pipeline, caplog, a_records_db):
+    """What happens when a single record is not found. This can occur after errors,
+    or data for studies is somehow moved into the streams outside idissend"""
 
-    # writing to records db will raise exception
-    monkeypatch.setattr('idissend.persistence.IDISSendRecordsSession.add',
-                        Mock(side_effect=SQLAlchemyError('Database has headache')))
+    # push to pending and create IDIS jobs
+    a_pipeline.run_once()   # import from incoming to pending
 
-    status_before = a_pipeline.get_status()
-    with pytest.raises(IDISSendException) as e:
+    # now remove a record
+    with a_records_db.get_session() as session:
+        session.delete(session.get_all()[0])
+
+    # running again will fail in the pending stage because one study now has no
+    # record, so it is unknown which IDIS job has been made for it
+    with pytest.raises(RecordNotFoundException):
         a_pipeline.run_once()   # import from incoming to pending
 
-    assert "Rolling back" in caplog.text
-    assert status_before == a_pipeline.get_status()  # nothing should have changed
+
+
+
+
+

@@ -6,12 +6,10 @@ be in a database for production
 
 import logging
 from pathlib import Path
-from typing import List
 
 from anonapi.client import AnonClientTool
 from anonapi.objects import RemoteAnonServer
 from anonapi.paths import UNCMapping, UNCMap, UNCPath
-from anonapi.responses import JobStatus
 
 from idissend.core import Stream, Person, Stage
 from idissend.persistence import IDISSendRecords, get_db_sessionmaker
@@ -31,6 +29,8 @@ IDIS_TOKEN = 'a_token'
 
 IDIS_WEB_API_SERVER_URL = 'https://umcradanonp11.umcn.nl/p01'  # Talk to IDIS through this
 IDIS_WEB_API_SERVER_NAME = 'p01'  # Name to use in log messages
+
+RECORDS_DB_PATH = STAGES_BASE_PATH / 'records_db.sqlite'
 
 OUTPUT_BASE_PATH = Path(r'\\server\path')  # let IDIS write all data here
 
@@ -75,7 +75,7 @@ connection = IDISConnection(client_tool=AnonClientTool(username=IDIS_USERNAME,
                                                  url=IDIS_WEB_API_SERVER_URL)])
 
 records = IDISSendRecords(session_maker=get_db_sessionmaker(
-    STAGES_BASE_PATH / 'records_db.sqlite'))
+    RECORDS_DB_PATH))
 
 pending = PendingAnon(name='pending',
                       path=STAGES_BASE_PATH / 'pending',
@@ -111,5 +111,4 @@ logger.setLevel(logging.DEBUG)
 logger.info("Running once")
 
 pipeline.incoming.incoming.assert_all_paths()
-pipeline.print_status()
 pipeline.run_once()

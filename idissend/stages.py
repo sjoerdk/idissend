@@ -285,6 +285,28 @@ class PendingAnon(Stage):
             name=study.name, stream=study.stream, stage=study.stage, record=record
         )
 
+    def get_all_orphaned_studies(self) -> List[Study]:
+        """Returns all studies for which no records exists.
+
+        This should not occur often but could be the result of certain crashes or if
+        data has been inserted into streams from outside idissend. This is the
+        only method in this stage which does not return PendingStudy objects.
+
+        Returns
+        -------
+        List[Study]
+            All studies for which no record exists.
+        """
+
+        with self.records.get_session() as session:
+            records = session.get_all()
+
+        studies = super(PendingAnon, self).get_all_studies()
+        study_paths = {x.get_path(): x for x in studies}
+        record_paths = set((x.study_folder for x in records))
+        return [y for x, y in study_paths.items() if x
+                not in record_paths]
+
     def get_server(self, server_name: str) -> RemoteAnonServer:
         return self.idis_connection.get_server(server_name=server_name)
 

@@ -197,7 +197,7 @@ class Stage:
             The study after pushing to this stage. New object
 
         """
-        self.logger.info(f'receiving {study}')
+        self.logger.debug(f'receiving {study}')
         if not stream:
             stream = study.stream
 

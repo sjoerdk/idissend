@@ -29,4 +29,7 @@ def test_pipeline(caplog, an_incoming_stage, an_empty_pending_stage,
     caplog.set_level(logging.DEBUG)
     pipeline.run_once()
 
+    # check logs for regular operation
+
+    # check logs when things go wrong
     test = 1

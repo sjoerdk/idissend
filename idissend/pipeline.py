@@ -12,9 +12,11 @@ from anonapi.objects import RemoteAnonServer
 from anonapi.paths import UNCMapping, UNCMap, UNCPath
 from anonapi.responses import JobStatus
 
-from idissend.core import Stream, Person, Stage
+from idissend.core import Stream, Person, Stage, StudyPushException
+from idissend.exceptions import IDISSendException
 from idissend.persistence import IDISSendRecords, get_db_sessionmaker
-from idissend.stages import Incoming, PendingAnon, IDISConnection, Trash
+from idissend.stages import Incoming, PendingAnon, IDISConnection, Trash, \
+    IDISCommunicationException
 
 # parameters #
 
@@ -98,8 +100,21 @@ trash = Trash(name='trash',
 
 class DefaultPipeline:
     """Standard version of a idissend pipeline: data comes in, is exposed to IDIS for
-    anonymization, then ends up in completed. There are trash and errorred stages to hold
-    studies if needed"""
+    anonymization, then ends up in completed. There are trash and errorred stages to
+    hold studies if needed
+
+    Responsibilities
+    ----------------
+    Pipeline does:
+    * Inspect status and studies of stages
+    * Push studies between stages if needed
+    * log errors raised by stages, but not necessarily catch
+
+    Pipeline does NOT:
+    * Handle any actual files (this is up to the stage)
+    * Handle any rollback on error (this is also up to the stage)
+
+    """
 
     def __init__(self,
                  incoming: Incoming,
@@ -128,15 +143,26 @@ class DefaultPipeline:
         self.trash = trash
         self.errored = errored
         self.all_stages = [incoming, pending, finished, trash, errored]
+        self.logger = logging.getLogger(f'pipeline {id(self)}')
 
     def run_once(self):
-        """Check each stage and perform actions one time"""
+        """Check each stage and perform actions one time
 
-        # update the IDIS job status of studies in pending stage
+        Raises
+        ------
+        IDISSendException:
+            If anything goes wrong executing the run that the pipeline cannot handle
+            by itself
+        """
+
+        self.logger.info("Running once")
+
         studies = self.pending.get_all_studies()
+        self.logger.debug(f"Updating IDIS status for {len(studies)} pending jobs")
         self.pending.update_records(studies)
 
-        # deal with different groups of studies
+        self.logger.debug("Taking action based on IDIS status")
+
         self.finished.push_studies(
             [x for x in studies if x.last_status == JobStatus.DONE])
         self.trash.push_studies(
@@ -144,16 +170,20 @@ class DefaultPipeline:
         self.errored.push_studies(
             [x for x in studies if x.last_status == JobStatus.ERROR])
 
-        # check for new studies coming in
+        self.logger.debug("Checking for new studies coming in")
         cooled_down = self.incoming.get_all_studies(only_cooled=True)
+        self.logger.debug(f"Found {len(cooled_down)}. Pushing to pending")
         self.pending.push_studies(cooled_down)
 
-        # empty trash if needed (disable for now)
+        self.logger.debug("empty trash if needed")
         self.trash.empty()
 
-    def print_status(self):
+    def get_status(self) -> str:
+        """Status for all stages"""
+        status_lines = []
         for stage in self.all_stages:
             studies = stage.get_all_studies()
-            print(f"{stage} at {stage.path} contains {len(studies)} "
-                  f"studies: {[str(x) for x in studies]}")
+            status = status_lines.append(f"{stage.name} contains {len(studies)} "
+                                         f"studies: {[str(x) for x in studies]}")
 
+        return "\n".join(status_lines)

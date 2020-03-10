@@ -293,7 +293,7 @@ class PendingAnon(Stage):
 
         Raises
         ------
-        IDISCommunicationError
+        IDISCommunicationException
             If anything goes wrong getting information from IDIS
         """
         # group jobs per IDIS server to minimize number of web API queries

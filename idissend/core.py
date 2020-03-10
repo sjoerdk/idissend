@@ -156,7 +156,7 @@ class Stage:
         self.name = name
         self.path = path
         self.streams = streams
-        self.logger = logging.getLogger(f'<stage> {self.name}')
+        self.logger = logging.getLogger(f'stage "{self.name}"')
 
     def __str__(self):
         return self.name

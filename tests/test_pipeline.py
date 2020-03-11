@@ -16,8 +16,9 @@ from idissend.stages import Trash, IDISCommunicationException, RecordNotFoundExc
 
 
 @pytest.fixture
-def a_pipeline(an_incoming_stage, an_empty_pending_stage,
-               an_idis_connection, tmp_path, caplog):
+def a_pipeline(
+    an_incoming_stage, an_empty_pending_stage, an_idis_connection, tmp_path, caplog
+):
     """A default pipeline with all-mocked connections to outside servers.
     Integration test light. Useful for checking log messages etc."""
     # capture all logs
@@ -26,15 +27,17 @@ def a_pipeline(an_incoming_stage, an_empty_pending_stage,
     # make sure all stages have the same streams
     streams = an_incoming_stage.streams
     an_empty_pending_stage.streams = streams
-    finished = Stage(name='finished', path=Path(tmp_path)/'finished', streams=streams)
-    trash = Trash(name="Trash", path=Path(tmp_path)/'trash', streams=streams)
-    errored = Stage(name='errored', path=Path(tmp_path) / 'errored',
-                    streams=streams)
+    finished = Stage(name="finished", path=Path(tmp_path) / "finished", streams=streams)
+    trash = Trash(name="Trash", path=Path(tmp_path) / "trash", streams=streams)
+    errored = Stage(name="errored", path=Path(tmp_path) / "errored", streams=streams)
 
-    return DefaultPipeline(incoming=an_incoming_stage,
-                           pending=an_empty_pending_stage,
-                           finished=finished,
-                           trash=trash, errored=errored)
+    return DefaultPipeline(
+        incoming=an_incoming_stage,
+        pending=an_empty_pending_stage,
+        finished=finished,
+        trash=trash,
+        errored=errored,
+    )
 
 
 def test_pipline_regular_operation(a_pipeline, caplog):
@@ -52,12 +55,13 @@ def test_pipeline_idis_exceptions(a_pipeline, caplog, an_idis_connection):
     an_idis_connection.client_tool.get_job_info_list = Mock(
         side_effect=ClientToolException(
             "IDIS fell over. Out of the window. Into a pond. "
-            "Full of sharks. Radioactive Sharks. Connection lost")
+            "Full of sharks. Radioactive Sharks. Connection lost"
+        )
     )
-    a_pipeline.run_once()   # import from incoming to pending
+    a_pipeline.run_once()  # import from incoming to pending
     status_before = a_pipeline.get_status()
     with pytest.raises(IDISSendException) as e:
-        a_pipeline.run_once()   # IDIS call from pending will raise exception
+        a_pipeline.run_once()  # IDIS call from pending will raise exception
 
     assert e.type == IDISCommunicationException
     assert status_before == a_pipeline.get_status()  # nothing should have changed
@@ -68,7 +72,7 @@ def test_pipeline_record_not_found_exception(a_pipeline, caplog, a_records_db):
     or data for studies is somehow moved into the streams outside idissend"""
 
     # push to pending and create IDIS jobs
-    a_pipeline.run_once()   # import from incoming to pending
+    a_pipeline.run_once()  # import from incoming to pending
 
     # now remove a record
     with a_records_db.get_session() as session:
@@ -77,10 +81,4 @@ def test_pipeline_record_not_found_exception(a_pipeline, caplog, a_records_db):
     # running again will fail in the pending stage because one study now has no
     # record, so it is unknown which IDIS job has been made for it
     with pytest.raises(RecordNotFoundException):
-        a_pipeline.run_once()   # import from incoming to pending
-
-
-
-
-
-
+        a_pipeline.run_once()  # import from incoming to pending

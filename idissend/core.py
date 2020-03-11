@@ -196,16 +196,14 @@ class Stage:
             The study after pushing to this stage. New object
 
         """
-        self.logger.debug(f'receiving {study}')
+        self.logger.debug(f"receiving {study}")
         if not stream:
             stream = study.stream
 
         if stream in self.streams:
             self.assert_path_for_stream(stream)
         else:
-            raise StudyPushException(
-                f"Stream '{stream}' " f"does not exist in {self}"
-            )
+            raise StudyPushException(f"Stream '{stream}' " f"does not exist in {self}")
 
         # create new study that is in this stage
         original_study = study  # keep original for possible rollback
@@ -220,7 +218,7 @@ class Stage:
             return self.push_study_callback(new_study)
 
         except (IDISSendException, PushStudyCallbackException) as e:
-            self.logger.warning(f'receiving {study} failed: {e}. Rolling back.')
+            self.logger.warning(f"receiving {study} failed: {e}. Rolling back.")
             # roll back. move data back where it came from
             shutil.move(
                 str(new_study.get_path()),
@@ -228,7 +226,7 @@ class Stage:
             )
             raise StudyPushException(e)
         except (FileNotFoundError, OSError) as e:
-            self.logger.warning(f'receiving {study} failed: {e}')
+            self.logger.warning(f"receiving {study} failed: {e}")
             raise StudyPushException(e)
 
     def push_study_callback(self, study: Study):

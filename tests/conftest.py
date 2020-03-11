@@ -7,8 +7,11 @@ from unittest.mock import Mock
 
 import pytest
 from anonapi.responses import JobStatus
-from anonapi.testresources import RemoteAnonServerFactory, JobInfoFactory, \
-    MockAnonClientTool
+from anonapi.testresources import (
+    RemoteAnonServerFactory,
+    JobInfoFactory,
+    MockAnonClientTool,
+)
 
 from idissend.core import Stream, Stage, Study
 from idissend.persistence import IDISSendRecords, get_memory_only_sessionmaker
@@ -68,8 +71,10 @@ def a_stage(some_stages):
 def an_incoming_stage(an_idssend_structured_folder, some_streams) -> CoolDown:
     """An incoming stage which has some actual content on disk"""
     return CoolDown(
-        name="incoming", path=an_idssend_structured_folder, streams=some_streams,
-        cool_down=0
+        name="incoming",
+        path=an_idssend_structured_folder,
+        streams=some_streams,
+        cool_down=0,
     )
 
 
@@ -114,4 +119,3 @@ def mock_anon_client_tool(monkeypatch):
     ]
     # mock wrapper to be able to record responses
     return Mock(wraps=MockAnonClientTool(responses=some_responses))
-

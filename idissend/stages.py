@@ -32,7 +32,9 @@ class CoolDown(Stage):
 
     """
 
-    def __init__(self, name: str, path: Path, streams: List[Stream], cool_down: int = 5):
+    def __init__(
+        self, name: str, path: Path, streams: List[Stream], cool_down: int = 5
+    ):
         """
 
         Parameters
@@ -154,8 +156,7 @@ class PendingAnon(Stage):
         streams: List[Stream],
         idis_connection: IDISConnection,
         records: IDISSendRecords,
-        unc_mapping: UNCMapping = None
-
+        unc_mapping: UNCMapping = None,
     ):
         """
 
@@ -222,8 +223,9 @@ class PendingAnon(Stage):
                 description=f"Created by idissend for stream " f"{study.stream}",
                 pims_keyfile_id=study.stream.pims_key,
             )
-            self.logger.info(f'Created IDIS job {created.job_id} on {server} '
-                             f'for {study}')
+            self.logger.info(
+                f"Created IDIS job {created.job_id} on {server} " f"for {study}"
+            )
         except AnonAPIException as e:
             raise PushStudyCallbackException(e)
 
@@ -277,7 +279,8 @@ class PendingAnon(Stage):
                 record = session.get_for_study_folder(study.get_path())
         if not record:
             raise RecordNotFoundException(
-                f"{str(self)}: There is no record for {study}")
+                f"{str(self)}: There is no record for {study}"
+            )
         return PendingStudy(
             name=study.name, stream=study.stream, stage=study.stage, record=record
         )
@@ -301,8 +304,7 @@ class PendingAnon(Stage):
         studies = super(PendingAnon, self).get_all_studies()
         study_paths = {x.get_path(): x for x in studies}
         record_paths = set((x.study_folder for x in records))
-        return [y for x, y in study_paths.items() if x
-                not in record_paths]
+        return [y for x, y in study_paths.items() if x not in record_paths]
 
     def get_server(self, server_name: str) -> RemoteAnonServer:
         return self.idis_connection.get_server(server_name=server_name)
@@ -375,8 +377,9 @@ class Trash(Stage):
     def delete_all(self):
         """delete data for all studies in trash"""
         studies = self.get_all_studies()
-        self.logger.info(f"Removing data for {len(studies)} studies: "
-                         f"{[str(x) for x in studies]}")
+        self.logger.info(
+            f"Removing data for {len(studies)} studies: " f"{[str(x) for x in studies]}"
+        )
         for study in studies:
             shutil.rmtree(study.get_path())
 

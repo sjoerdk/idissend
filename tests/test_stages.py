@@ -15,9 +15,14 @@ from anonapi.testresources import (
 
 from idissend.core import StudyPushException
 from idissend.persistence import IDISSendRecords, get_memory_only_sessionmaker
-from idissend.stages import (PendingAnon, IDISConnection, UnknownServerException,
-                             IDISCommunicationException, RecordNotFoundException,
-                             Trash)
+from idissend.stages import (
+    PendingAnon,
+    IDISConnection,
+    UnknownServerException,
+    IDISCommunicationException,
+    RecordNotFoundException,
+    Trash,
+)
 from tests.factories import StreamFactory
 
 
@@ -34,8 +39,11 @@ def a_trash_stage(a_pending_anon_stage_with_data, tmpdir) -> Trash:
     """A trash stage with temp path on disk and the same streams as
     a_pending_anon_stage_with_data"""
 
-    trash = Trash(name='Trash', streams=a_pending_anon_stage_with_data.streams,
-                  path=Path(tmpdir) / 'trash')
+    trash = Trash(
+        name="Trash",
+        streams=a_pending_anon_stage_with_data.streams,
+        path=Path(tmpdir) / "trash",
+    )
     trash.assert_all_paths()
     return trash
 
@@ -68,21 +76,27 @@ def test_pending_anon_push(an_empty_pending_stage, mock_anon_client_tool, a_stud
         assert len(session.get_all()) == 1
 
 
-def test_pending_anon_push_unc_paths(an_empty_pending_stage, mock_anon_client_tool, a_study):
+def test_pending_anon_push_unc_paths(
+    an_empty_pending_stage, mock_anon_client_tool, a_study
+):
     """ Created jobs should have UNC input and output. Otherwise IDIS will just
     choke on them (design flaw definitely)"""
 
     # study with local source and destination. As is these paths make no sense
     # on an IDIS server
 
-    a_stream = StreamFactory(output_folder=Path('/mnt/datashare/some/folder'))
+    a_stream = StreamFactory(output_folder=Path("/mnt/datashare/some/folder"))
     an_empty_pending_stage.streams.append(a_stream)
 
     # map local paths to UNC paths to make translation possible
     mapping = UNCMapping(
-        maps=[UNCMap(local=Path('/'), unc=UNCPath(r'\\server\share')),
-              UNCMap(local=Path('/mnt/datashare'),
-                     unc=UNCPath(r'\\dataserver\datashare'))])
+        maps=[
+            UNCMap(local=Path("/"), unc=UNCPath(r"\\server\share")),
+            UNCMap(
+                local=Path("/mnt/datashare"), unc=UNCPath(r"\\dataserver\datashare")
+            ),
+        ]
+    )
     an_empty_pending_stage.unc_mapping = mapping
 
     new_study = an_empty_pending_stage.push_study(a_study, a_stream)
@@ -91,8 +105,10 @@ def test_pending_anon_push_unc_paths(an_empty_pending_stage, mock_anon_client_to
     assert mock_anon_client_tool.create_path_job.called
 
     # and the paths should be UNC
-    idis_source_path = mock_anon_client_tool.create_path_job.call_args[1]['source_path']
-    idis_destination_path = mock_anon_client_tool.create_path_job.call_args[1]['destination_path']
+    idis_source_path = mock_anon_client_tool.create_path_job.call_args[1]["source_path"]
+    idis_destination_path = mock_anon_client_tool.create_path_job.call_args[1][
+        "destination_path"
+    ]
 
     assert UNCPath.is_unc(idis_source_path)
     assert UNCPath.is_unc(idis_destination_path)
@@ -102,7 +118,7 @@ def test_pending_anon_push_unc_paths(an_empty_pending_stage, mock_anon_client_to
     an_empty_pending_stage.streams.append(a_stream)
     with pytest.raises(StudyPushException) as e:
         an_empty_pending_stage.push_study(new_study, a_stream)
-    assert 'could not be mapped' in str(e)
+    assert "could not be mapped" in str(e)
 
 
 def test_pending_anon_push_idis_exception(
@@ -181,10 +197,9 @@ def test_pending_anon_check_status_exceptions(
         stage.update_records(studies)
 
 
-def test_pending_anon_missing_record(a_pending_anon_stage_with_data,
-                                     a_trash_stage,
-                                     mock_anon_client_tool,
-                                     a_records_db):
+def test_pending_anon_missing_record(
+    a_pending_anon_stage_with_data, a_trash_stage, mock_anon_client_tool, a_records_db
+):
     """Pending stage should be able to handle missing records
      """
     # This stage has 3 studies already pushed to it. Verify studies,
@@ -219,6 +234,4 @@ def test_trash_stage(a_pending_anon_stage_with_data, a_trash_stage, caplog):
 
     a_trash_stage.delete_all()
     assert len(a_trash_stage.get_all_studies()) == 0
-    assert 'Removing data for 3 studies' in caplog.text
-
-
+    assert "Removing data for 3 studies" in caplog.text

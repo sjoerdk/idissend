@@ -6,8 +6,8 @@ IDIS send
         :target: https://github.com/sjoerdk/idissend/actions?query=workflow%3Abuild
         :alt: Build Status
 
-.. image:: https://codecov.io/gh/sjoerdk/anonapi/branch/master/graph/badge.svg
-    :target: https://codecov.io/gh/sjoerdk/anonapi
+.. image:: https://codecov.io/gh/sjoerdk/idissend/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/sjoerdk/idissend
 
 .. image:: https://pyup.io/repos/github/sjoerdk/idissend/shield.svg
      :target: https://pyup.io/repos/github/sjoerdk/idissend/

@@ -89,7 +89,12 @@ pending = PendingAnon(
 
 errored = Stage(name="errored", path=STAGES_BASE_PATH / "errored", streams=streams)
 
-finished = Stage(name="finished", path=STAGES_BASE_PATH / "finished", streams=streams)
+finished = CoolDown(
+    name="finished",
+    path=STAGES_BASE_PATH / "finished",
+    streams=streams,
+    cool_down=2 * 60 * 24,
+)  # 2 days
 
 trash = Trash(name="trash", path=STAGES_BASE_PATH / "trash", streams=streams)
 

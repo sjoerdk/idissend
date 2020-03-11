@@ -12,7 +12,12 @@ from anonapi.client import ClientToolException
 from idissend.core import Stage
 from idissend.exceptions import IDISSendException
 from idissend.pipeline import DefaultPipeline
-from idissend.stages import Trash, IDISCommunicationException, RecordNotFoundException
+from idissend.stages import (
+    Trash,
+    IDISCommunicationException,
+    RecordNotFoundException,
+    CoolDown,
+)
 
 
 @pytest.fixture
@@ -27,7 +32,9 @@ def a_pipeline(
     # make sure all stages have the same streams
     streams = an_incoming_stage.streams
     an_empty_pending_stage.streams = streams
-    finished = Stage(name="finished", path=Path(tmp_path) / "finished", streams=streams)
+    finished = CoolDown(
+        name="finished", path=Path(tmp_path) / "finished", streams=streams, cool_down=0
+    )
     trash = Trash(name="Trash", path=Path(tmp_path) / "trash", streams=streams)
     errored = Stage(name="errored", path=Path(tmp_path) / "errored", streams=streams)
 

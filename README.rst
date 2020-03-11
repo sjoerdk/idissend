@@ -6,12 +6,15 @@ IDIS send
         :target: https://github.com/sjoerdk/idissend/actions?query=workflow%3Abuild
         :alt: Build Status
 
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
-    :target: https://github.com/ambv/black
+.. image:: https://codecov.io/gh/sjoerdk/anonapi/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/sjoerdk/anonapi
 
 .. image:: https://pyup.io/repos/github/sjoerdk/idissend/shield.svg
      :target: https://pyup.io/repos/github/sjoerdk/idissend/
      :alt: Updates
+
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :target: https://github.com/ambv/black
 
 
 Automate sending incoming files to IDIS anonymization server

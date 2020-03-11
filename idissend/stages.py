@@ -53,21 +53,17 @@ class CoolDown(Stage):
         super(CoolDown, self).__init__(name=name, path=path, streams=streams)
         self.cool_down = cool_down
 
-    def get_all_studies(self, only_cooled=True) -> List[Study]:
+    def get_all_studies(self) -> List[Study]:
         """Get all studies for all streams in this folder
 
-        Parameters
-        ----------
-        only_cooled: bool, optional
-            If True, return only studies deemed complete after cool_down.
-            Otherwise, return all studies. Defaults to True
+        """
+        return super(CoolDown, self).get_all_studies()
+
+    def get_all_cooled_studies(self) -> List[Study]:
+        """Get all studies which have not changed in the cool down period
 
         """
-        studies = super(CoolDown, self).get_all_studies()
-        if only_cooled:
-            studies = [x for x in studies if self.has_cooled_down(x)]
-
-        return studies
+        return [x for x in self.get_all_studies() if self.has_cooled_down(x)]
 
     def has_cooled_down(self, study: Study) -> bool:
         """Check whether files are still coming in for this study

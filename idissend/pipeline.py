@@ -95,18 +95,18 @@ class DefaultPipeline:
         )
 
         self.logger.debug("Checking for new studies coming in")
-        cooled_down = self.incoming.get_all_studies(only_cooled=True)
+        cooled_down = self.incoming.get_all_cooled_studies()
         self.logger.debug(f"Found {len(cooled_down)}. Pushing to pending")
         self.pending.push_studies(cooled_down)
+
+        self.logger.debug("empty old trash")
+        self.trash.delete_all()
 
         self.logger.debug(
             f"Moving finished studies older than "
             f"{self.finished.cool_down} minutes to trash"
         )
-        self.trash.push_studies(self.finished.get_all_studies())
-
-        self.logger.debug("empty trash")
-        self.trash.delete_all()
+        self.trash.push_studies(self.finished.get_all_cooled_studies())
 
     def get_status(self) -> str:
         """Status for all stages"""

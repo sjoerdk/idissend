@@ -8,7 +8,6 @@ from unittest.mock import Mock
 
 import pytest
 from anonapi.client import ClientToolException
-from sqlalchemy.exc import SQLAlchemyError
 
 from idissend.core import Stage
 from idissend.exceptions import IDISSendException

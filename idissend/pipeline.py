@@ -4,19 +4,17 @@ this module has classes and methods for the relationships between them
 
 
 import logging
-from pathlib import Path
-from typing import List
 
 from anonapi.client import AnonClientTool
 from anonapi.objects import RemoteAnonServer
 from anonapi.paths import UNCMapping, UNCMap, UNCPath
 from anonapi.responses import JobStatus
-
-from idissend.core import Stream, Person, Stage, StudyPushException
-from idissend.exceptions import IDISSendException
+from collections import Counter
+from idissend.core import Stream, Person, Stage
 from idissend.persistence import IDISSendRecords, get_db_sessionmaker
-from idissend.stages import Incoming, PendingAnon, IDISConnection, Trash, \
-    IDISCommunicationException
+from idissend.stages import Incoming, PendingAnon, IDISConnection, Trash
+from pathlib import Path
+
 
 # parameters #
 
@@ -156,37 +154,35 @@ class DefaultPipeline:
         """
 
         self.logger.info("Running once")
-        try:
-            studies = self.pending.get_all_studies()
-            self.logger.debug(f"Updating IDIS status for {len(studies)} pending jobs")
-            self.pending.update_records(studies)
 
-            self.logger.debug("Taking action based on IDIS status")
+        studies = self.pending.get_all_studies()
+        self.logger.debug(f"Updating IDIS status for {len(studies)} pending jobs")
+        self.pending.update_records(studies)
+        self.logger.debug(
+            f"Found {str(dict(Counter([x.last_status for x in studies])))}."
+            f" Taking action based on status")
 
-            self.finished.push_studies(
-                [x for x in studies if x.last_status == JobStatus.DONE])
-            self.trash.push_studies(
-                [x for x in studies if x.last_status == JobStatus.INACTIVE])
-            self.errored.push_studies(
-                [x for x in studies if x.last_status == JobStatus.ERROR])
+        self.finished.push_studies(
+            [x for x in studies if x.last_status == JobStatus.DONE])
+        self.trash.push_studies(
+            [x for x in studies if x.last_status == JobStatus.INACTIVE])
+        self.errored.push_studies(
+            [x for x in studies if x.last_status == JobStatus.ERROR])
 
-            self.logger.debug("Checking for new studies coming in")
-            cooled_down = self.incoming.get_all_studies(only_cooled=True)
-            self.logger.debug(f"Found {len(cooled_down)}. Pushing to pending")
-            self.pending.push_studies(cooled_down)
+        self.logger.debug("Checking for new studies coming in")
+        cooled_down = self.incoming.get_all_studies(only_cooled=True)
+        self.logger.debug(f"Found {len(cooled_down)}. Pushing to pending")
+        self.pending.push_studies(cooled_down)
 
-            self.logger.debug("empty trash if needed")
-            self.trash.empty()
-        except IDISSendException as e:
-            self.logger.error(e)
-            raise
+        self.logger.debug("empty trash if needed")
+        self.trash.empty()
 
     def get_status(self) -> str:
         """Status for all stages"""
         status_lines = []
         for stage in self.all_stages:
             studies = stage.get_all_studies()
-            status = status_lines.append(f"{stage.name} contains {len(studies)} "
-                                         f"studies: {[str(x) for x in studies]}")
+            status_lines.append(f"{stage.name} contains {len(studies)} "
+                                f"studies: {[str(x) for x in studies]}")
 
         return "\n".join(status_lines)

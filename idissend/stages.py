@@ -1,4 +1,5 @@
 """Specific implementations of stages the data goes through"""
+import shutil
 
 from anonapi.client import AnonClientTool, ClientToolException
 from anonapi.exceptions import AnonAPIException
@@ -16,15 +17,22 @@ from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional, Iterable
 
 
-class Incoming(Stage):
-    """A folder where DICOM files are coming into multiple streams
-    Assumed directory structure is <stream>/<study>/file
+class CoolDown(Stage):
+    """A stage with an inbuilt waiting or cool down period.
 
-    An Incoming can come up with studies that are deemed complete (see init
-    notes below for cooldown)
+    By default studies are only returned after they have been in the stage for this
+    period. There are two obvious use cases for this:
+
+    * Making sure a DICOM transfer is complete before starting processing. DICOM
+      CSTORE infamously does not have a concept of 'all files have been sent'.
+      In the dicom world any file could come in at any time. A common hack to
+      get around this is to assume that if no files have been added for x minutes
+      the transfer is probably complete.
+    * Removing completed and errored studies after a certain grace period.
+
     """
 
-    def __init__(self, name: str, path: Path, streams: List[Stream], cooldown: int = 5):
+    def __init__(self, name: str, path: Path, streams: List[Stream], cool_down: int = 5):
         """
 
         Parameters
@@ -35,17 +43,13 @@ class Incoming(Stage):
             Root path of this folder
         streams: List[Stream]
             All the streams for which this folder could receive data
-        cooldown: int
-            Number of minutes to wait before considering a study 'complete'. This
-            is needed because a DICOM cstore transfer has no concept of a transfer
-            being complete; files just come in and they might stop coming and or
-            they might not. Who knows.
-            The assumption that this class makes is 'if files have stopped coming
-            in for <cooldown> minutes, the transfer is probably done'. Bit sad
-            but the only way to do this with DICOM cstore.
+        cool_down: int, optional
+            Number of minutes to wait before considering a study cooled down.
+            CoolDown is measured against the last modification date of any file
+            in the study. Defaults to 5 minutes
         """
-        super(Incoming, self).__init__(name=name, path=path, streams=streams)
-        self.cooldown = cooldown
+        super(CoolDown, self).__init__(name=name, path=path, streams=streams)
+        self.cool_down = cool_down
 
     def get_all_studies(self, only_cooled=True) -> List[Study]:
         """Get all studies for all streams in this folder
@@ -53,11 +57,11 @@ class Incoming(Stage):
         Parameters
         ----------
         only_cooled: bool, optional
-            If True, return only studies deemed complete after cooldown.
+            If True, return only studies deemed complete after cool_down.
             Otherwise, return all studies. Defaults to True
 
         """
-        studies = super(Incoming, self).get_all_studies()
+        studies = super(CoolDown, self).get_all_studies()
         if only_cooled:
             studies = [x for x in studies if self.has_cooled_down(x)]
 
@@ -66,17 +70,9 @@ class Incoming(Stage):
     def has_cooled_down(self, study: Study) -> bool:
         """Check whether files are still coming in for this study
 
-        Considered cooled down if no file was modified less then <cooldown> mins ago
+        Considered cooled down if no file was modified less then <cool_down> mins ago
         """
-        return study.is_older_than(self.cooldown)
-
-    def assert_all_paths(self):
-        """Make sure paths to this stage and all stream in it exist
-
-        Useful for initial testing of a stage: you don't have to remember
-        the exact paths for expected data"""
-        for stream in self.streams:
-            self.get_path_for_stream(stream).mkdir(parents=True, exist_ok=True)
+        return study.is_older_than(self.cool_down)
 
 
 class IDISConnection:
@@ -376,9 +372,13 @@ class Trash(Stage):
     Can be emptied kind of prudently (Keep as much as possible but also keep
     enough space left)"""
 
-    def empty(self):
-        """remove data from trash"""
-        pass
+    def delete_all(self):
+        """delete data for all studies in trash"""
+        studies = self.get_all_studies()
+        self.logger.info(f"Removing data for {len(studies)} studies: "
+                         f"{[str(x) for x in studies]}")
+        for study in studies:
+            shutil.rmtree(study.get_path())
 
 
 class RecordNotFoundException(IDISSendException):

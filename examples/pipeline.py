@@ -14,7 +14,7 @@ from anonapi.paths import UNCMapping, UNCMap, UNCPath
 from idissend.core import Stream, Person, Stage
 from idissend.persistence import IDISSendRecords, get_db_sessionmaker
 from idissend.pipeline import DefaultPipeline
-from idissend.stages import Incoming, PendingAnon, IDISConnection, Trash
+from idissend.stages import CoolDown, PendingAnon, IDISConnection, Trash
 
 # parameters #
 
@@ -63,10 +63,10 @@ streams = [Stream(name='stream1',
 
 # stages #
 # data in one stream goes through one or more of these stages
-incoming = Incoming(name='incoming',
+incoming = CoolDown(name='incoming',
                     path=STAGES_BASE_PATH / 'incoming',
                     streams=streams,
-                    cooldown=0)
+                    cool_down=0)
 
 connection = IDISConnection(client_tool=AnonClientTool(username=IDIS_USERNAME,
                                                        token=IDIS_TOKEN),

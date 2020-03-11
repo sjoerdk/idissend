@@ -12,7 +12,7 @@ from anonapi.testresources import RemoteAnonServerFactory, JobInfoFactory, \
 
 from idissend.core import Stream, Stage, Study
 from idissend.persistence import IDISSendRecords, get_memory_only_sessionmaker
-from idissend.stages import Incoming, PendingAnon, IDISConnection
+from idissend.stages import CoolDown, PendingAnon, IDISConnection
 from tests import RESOURCE_PATH
 from tests.factories import StreamFactory
 
@@ -65,10 +65,11 @@ def a_stage(some_stages):
 
 
 @pytest.fixture
-def an_incoming_stage(an_idssend_structured_folder, some_streams) -> Incoming:
+def an_incoming_stage(an_idssend_structured_folder, some_streams) -> CoolDown:
     """An incoming stage which has some actual content on disk"""
-    return Incoming(
-        name="incoming", path=an_idssend_structured_folder, streams=some_streams
+    return CoolDown(
+        name="incoming", path=an_idssend_structured_folder, streams=some_streams,
+        cool_down=0
     )
 
 

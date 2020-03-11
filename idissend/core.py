@@ -298,6 +298,14 @@ class Stage:
 
         return studies
 
+    def assert_all_paths(self):
+        """Make sure paths to this stage and all stream in it exist
+
+        Useful for initial testing of a stage: you don't have to remember
+        the exact paths for expected data"""
+        for stream in self.streams:
+            self.get_path_for_stream(stream).mkdir(parents=True, exist_ok=True)
+
 
 class UnknownStreamException(IDISSendException):
     pass

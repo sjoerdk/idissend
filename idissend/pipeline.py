@@ -12,7 +12,7 @@ from anonapi.responses import JobStatus
 from collections import Counter
 from idissend.core import Stream, Person, Stage
 from idissend.persistence import IDISSendRecords, get_db_sessionmaker
-from idissend.stages import Incoming, PendingAnon, IDISConnection, Trash
+from idissend.stages import CoolDown, PendingAnon, IDISConnection, Trash
 from pathlib import Path
 
 
@@ -61,10 +61,10 @@ streams = [Stream(name='stream1',
 
 # stages #
 # data in one stream goes through one or more of these stages
-incoming = Incoming(name='incoming',
+incoming = CoolDown(name='incoming',
                     path=STAGES_BASE_PATH / 'incoming',
                     streams=streams,
-                    cooldown=0)
+                    cool_down=0)
 
 connection = IDISConnection(client_tool=AnonClientTool(username=IDIS_USERNAME,
                                                        token=IDIS_TOKEN),
@@ -87,9 +87,10 @@ errored = Stage(name='errored',
                 path=STAGES_BASE_PATH / 'errored',
                 streams=streams)
 
-finished = Stage(name='finished',
-                 path=STAGES_BASE_PATH / 'finished',
-                 streams=streams)
+finished = CoolDown(name='finished',
+                    path=STAGES_BASE_PATH / 'finished',
+                    streams=streams,
+                    cool_down=2 * 60 * 24)  # 2 days
 
 trash = Trash(name='trash',
               path=STAGES_BASE_PATH / 'trash',
@@ -115,20 +116,20 @@ class DefaultPipeline:
     """
 
     def __init__(self,
-                 incoming: Incoming,
+                 incoming: CoolDown,
                  pending: PendingAnon,
-                 finished: Stage,
+                 finished: CoolDown,
                  trash: Trash,
                  errored: Stage):
         """
 
         Parameters
         ----------
-        incoming: Incoming
+        incoming: CoolDown
             Data comes in here
         pending: PendingAnon
             Data waits here to be downloaded and anonymized by IDIS
-        finished: Stage
+        finished: CoolDown
             When IDIS is done, move the data from pending here
         trash: Trash
             Any study here can be removed when needed
@@ -173,6 +174,10 @@ class DefaultPipeline:
         cooled_down = self.incoming.get_all_studies(only_cooled=True)
         self.logger.debug(f"Found {len(cooled_down)}. Pushing to pending")
         self.pending.push_studies(cooled_down)
+
+        self.logger.debug(f"Moving finished studies older than "
+                          f"{self.finished.cool_down} minutes to trash")
+        self.trash.push_studies(self.finished.get_all_studies())
 
         self.logger.debug("empty trash if needed")
         self.trash.empty()

@@ -18,7 +18,7 @@ def test_incoming_folder(an_incoming_stage):
 
 
 def test_cooldown(monkeypatch):
-    """Studies are considered complete after a cooldown period. Does this work?"""
+    """Studies are considered complete after a cool_down period. Does this work?"""
     # a study with some files
     some_files = [Path(), Path(), Path()]
     study: Study = StudyFactory()

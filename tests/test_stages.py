@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -17,7 +18,7 @@ from idissend.persistence import IDISSendRecords, get_memory_only_sessionmaker
 from idissend.stages import (PendingAnon, IDISConnection, UnknownServerException,
                              IDISCommunicationException, RecordNotFoundException,
                              Trash)
-from tests.factories import StudyFactory, StreamFactory
+from tests.factories import StreamFactory
 
 
 @pytest.fixture
@@ -29,12 +30,14 @@ def a_pending_anon_stage_with_data(an_empty_pending_stage, some_studies) -> Pend
 
 
 @pytest.fixture
-def a_trash_stage(a_pending_anon_stage_with_data, tmpdir):
+def a_trash_stage(a_pending_anon_stage_with_data, tmpdir) -> Trash:
     """A trash stage with temp path on disk and the same streams as
     a_pending_anon_stage_with_data"""
-    return Trash(name='Trash',
-                 streams=a_pending_anon_stage_with_data.streams,
-                 path=Path(tmpdir)/'trash')
+
+    trash = Trash(name='Trash', streams=a_pending_anon_stage_with_data.streams,
+                  path=Path(tmpdir) / 'trash')
+    trash.assert_all_paths()
+    return trash
 
 
 def test_idis_connection(an_idis_connection):
@@ -207,5 +210,15 @@ def test_pending_anon_missing_record(a_pending_anon_stage_with_data,
     assert len(pending.get_all_studies()) == 2
 
 
+def test_trash_stage(a_pending_anon_stage_with_data, a_trash_stage, caplog):
+    """Emptying trash should work and be logged"""
+    caplog.set_level(logging.DEBUG)
+
+    a_trash_stage.push_studies(a_pending_anon_stage_with_data.get_all_studies())
+    assert len(a_trash_stage.get_all_studies()) == 3
+
+    a_trash_stage.delete_all()
+    assert len(a_trash_stage.get_all_studies()) == 0
+    assert 'Removing data for 3 studies' in caplog.text
 
 

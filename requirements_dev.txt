@@ -3,12 +3,12 @@ pip==19.2.3
 bump2version==0.5.11
 factory-boy==2.12
 wheel==0.33.6
-watchdog==0.9.0
-flake8==3.7.8
+watchdog==0.10.2
+flake8==3.7.9
 tox==3.14.6
 coverage==5.1
 Sphinx==3.0.2
-twine==1.14.0
+twine==3.1.1
 Click==7.1.1
 pytest==5.4.1
 pytest-runner==5.2

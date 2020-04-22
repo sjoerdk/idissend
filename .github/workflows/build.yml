@@ -42,5 +42,5 @@ jobs:
       if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
       uses: casperdcl/deploy-pypi@v1
       with:
-        password: ${{ secrets.pypi_token }}
+        password: ${{ secrets.pypi_password }}
         build: true

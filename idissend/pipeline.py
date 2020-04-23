@@ -62,7 +62,7 @@ class DefaultPipeline:
         self.trash = trash
         self.errored = errored
         self.all_stages = [incoming, pending, finished, trash, errored]
-        self.logger = logging.getLogger(f"pipeline {id(self)}")
+        self.logger = logging.getLogger(__name__)
 
     def run_once(self):
         """Check each stage and perform actions one time

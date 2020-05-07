@@ -114,16 +114,23 @@ class IDISSendRecordsSession:
         self.session.delete(record)
 
 
-def get_db_sessionmaker(db_filename) -> sqlalchemy.orm.session.sessionmaker:
+def get_db_sessionmaker(db_url) -> sqlalchemy.orm.session.sessionmaker:
     """Returns a session on a anonqa sqlite database in the given file.
     Creates db if it does not exist
+
+    Parameters
+    ----------
+    db_url: String
+        Sqlalchemy database url.
+        See https://docs.sqlalchemy.org/en/13/core/engines.html#database-urls
+
 
     Returns
     -------
     sqlalchemy.orm.session.Session
         A session on the database in db_filename
     """
-    engine = create_engine(f"sqlite:///{db_filename}", echo=False)
+    engine = create_engine(db_url, echo=False)
     Base.metadata.create_all(engine, checkfirst=True)  # Create if needed
     Session.configure(bind=engine)
     return Session

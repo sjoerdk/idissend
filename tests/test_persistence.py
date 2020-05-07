@@ -1,15 +1,23 @@
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 from idissend.orm import PendingAnonRecord
 from idissend.persistence import get_db_sessionmaker, IDISSendRecords
 
 
-def test_db(tmpdir):
+@pytest.fixture
+def a_sqlite_url(tmpdir):
+    db_file = Path(tmpdir) / "test_db.sqlite"
+    db_url = f'sqlite:///{db_file}'
+    return db_url
+
+
+def test_db(a_sqlite_url):
     """Just very basic object creation in db. Check that it works as expected"""
 
-    db_file = Path(tmpdir) / "test_db.sqlite"
-    session = get_db_sessionmaker(db_file)()
+    session = get_db_sessionmaker(a_sqlite_url)()
 
     study_folder = Path("/tmp/a_path")
     job_id = 123
@@ -25,7 +33,7 @@ def test_db(tmpdir):
     session.commit()
     session.close()
 
-    session = get_db_sessionmaker(db_file)()
+    session = get_db_sessionmaker(a_sqlite_url)()
     test = session.query(PendingAnonRecord).first()
     assert not test.last_check
     assert not test.last_status
@@ -37,17 +45,16 @@ def test_db(tmpdir):
     session.commit()
     session.close()
 
-    session = get_db_sessionmaker(db_file)()
+    session = get_db_sessionmaker(a_sqlite_url)()
     test = session.query(PendingAnonRecord).first()
     assert test.study_folder == study_folder
     assert test.last_check == last_check
 
 
-def test_idis_send_records(tmpdir):
+def test_idis_send_records(a_sqlite_url):
     """the records object makes interacting with db slightly cleaner """
 
-    db_file = Path(tmpdir) / "test_db.sqlite"
-    records = IDISSendRecords(session_maker=get_db_sessionmaker(db_file))
+    records = IDISSendRecords(session_maker=get_db_sessionmaker(a_sqlite_url))
 
     with records.get_session() as session:
         assert not session.get_all()
@@ -73,14 +80,13 @@ def test_idis_send_records(tmpdir):
         assert not session.get_for_job_id(100)
 
 
-def test_object_field_persistence(tmpdir):
+def test_object_field_persistence(a_sqlite_url):
     """Got into sqlalchemy object state trouble again.
     So when you create an ORM object, add it to as session, Expunge the object,
      close the session, why are all the object's fields inaccessible?
 
     """
-    db_file = Path(tmpdir) / "test_db.sqlite"
-    records = IDISSendRecords(session_maker=get_db_sessionmaker(db_file))
+    records = IDISSendRecords(session_maker=get_db_sessionmaker(a_sqlite_url))
 
     with records.get_session() as session:
         record = session.add(

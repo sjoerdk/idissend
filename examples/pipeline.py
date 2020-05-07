@@ -32,7 +32,7 @@ IDIS_WEB_API_SERVER_URL = (
 )
 IDIS_WEB_API_SERVER_NAME = "p01"  # Name to use in log messages
 
-RECORDS_DB_PATH = STAGES_BASE_PATH / "records_db.sqlite"
+RECORDS_DB_URL = f"sqlite:///{STAGES_BASE_PATH / 'records_db.sqlite'}"
 
 OUTPUT_BASE_PATH = Path(r"\\server\path")  # let IDIS write all data here
 
@@ -76,7 +76,7 @@ connection = IDISConnection(
     ],
 )
 
-records = IDISSendRecords(session_maker=get_db_sessionmaker(RECORDS_DB_PATH))
+records = IDISSendRecords(session_maker=get_db_sessionmaker(RECORDS_DB_URL))
 
 pending = PendingAnon(
     name="pending",

@@ -35,7 +35,7 @@ class Stream:
         self,
         name: str,
         output_folder: Path,
-        idis_profile: str,
+        idis_profile_name: str,
         pims_key: str,
         contact: Person,
     ):
@@ -47,7 +47,7 @@ class Stream:
             Name of this stream, doubles as folder name
         output_folder: Path
             Final destination of the data. Full UNC path
-        idis_profile:
+        idis_profile_name:
             Use the settings in this project for anonymization
         pims_key:
             Use this PIMS project for generating pseudonyms
@@ -57,7 +57,7 @@ class Stream:
 
         self.name = name
         self.output_folder = output_folder
-        self.idis_profile = idis_profile
+        self.idis_profile_name = idis_profile_name
         self.pims_key = pims_key
         self.contact = contact
 

@@ -35,7 +35,7 @@ class StreamFactory(factory.Factory):
 
     name = factory.sequence(lambda n: f"stream_{n}")
     output_folder = factory.sequence(lambda n: Path(f"output_folder_for_stream_{n}"))
-    idis_profile = factory.sequence(lambda n: f"idis_profile_{n}")
+    idis_profile_name = factory.sequence(lambda n: f"idis_profile_name{n}")
     pims_key = factory.sequence(lambda n: f"111{n}")
     contact = factory.SubFactory(PersonFactory)
 

@@ -21,7 +21,7 @@ from idissend.stages import CoolDown, PendingAnon, IDISConnection, Trash
 BASE_PATH = Path("/tmp/idissend")  # all data for all stages goes here
 STAGES_BASE_PATH = BASE_PATH / "stages"
 
-DEFAULT_IDIS_PROFILE = "An_idis_profile"  # anonymize with this profile
+DEFAULT_IDIS_PROFILE_NAME = "An_idis_profile"  # anonymize with this profile
 DEFAULT_PIMS_KEY = "123"  # Pass this to IDIS for generating pseudonyms
 
 IDIS_USERNAME = "SVC1234"  # use this to identify with IDIS web API
@@ -50,14 +50,14 @@ streams = [
     Stream(
         name="stream1",
         output_folder=OUTPUT_BASE_PATH / "stream1",
-        idis_profile=DEFAULT_IDIS_PROFILE,
+        idis_profile_name=DEFAULT_IDIS_PROFILE_NAME,
         pims_key=DEFAULT_PIMS_KEY,
         contact=Person(name="Sjoerd", email="mock_email"),
     ),
     Stream(
         name="stream2",
         output_folder=OUTPUT_BASE_PATH / "stream2",
-        idis_profile=DEFAULT_IDIS_PROFILE,
+        idis_profile_name=DEFAULT_IDIS_PROFILE_NAME,
         pims_key=DEFAULT_PIMS_KEY,
         contact=Person(name="Sjoerd2", email="mock_email"),
     ),

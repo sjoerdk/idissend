@@ -213,7 +213,7 @@ class PendingAnon(Stage):
         try:
             created = client.create_path_job(
                 server=server,
-                project_name=str(study.stream.idis_profile_name),
+                project_name=study.stream.idis_profile_name,
                 source_path=source_path,
                 destination_path=destination_path,
                 description=f"Created by idissend for stream " f"{study.stream}",

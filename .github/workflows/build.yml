@@ -41,7 +41,7 @@ jobs:
       uses: codecov/codecov-action@v1
     - name: PyPI Deployment
       if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
-      uses: casperdcl/deploy-pypi@v2
+      uses: casperdcl/deploy-pypi@v1
       with:
         password: ${{ secrets.pypi_password }}
         build: true

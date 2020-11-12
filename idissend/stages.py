@@ -241,7 +241,13 @@ class PendingAnon(Stage):
 
     def get_all_studies(self) -> List[PendingStudy]:
         """PendingAnon returns PendingStudy objects, which hold additional info on
-        IDIS job status """
+        IDIS job status
+
+        Raises
+        ------
+        RecordNotFoundException
+            If any study has no record in the records database
+        """
         studies = super().get_all_studies()
         return [self.to_pending_study(x) for x in studies]
 

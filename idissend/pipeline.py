@@ -12,7 +12,8 @@ from anonapi.responses import JobStatus
 from collections import Counter
 from idissend.core import Stream, Person, Stage
 from idissend.persistence import IDISSendRecords, get_db_sessionmaker
-from idissend.stages import CoolDown, PendingAnon, IDISConnection, Trash
+from idissend.stages import CoolDown, PendingAnon, IDISConnection, \
+    RecordNotFoundException, Trash
 from pathlib import Path
 
 
@@ -77,7 +78,17 @@ class DefaultPipeline:
 
         self.logger.info("Running once")
 
-        studies = self.pending.get_all_studies()
+        try:
+            studies = self.pending.get_all_studies()
+        except RecordNotFoundException as e:
+            self.logger.warning(f"A record is missing. Original exception: {e}")
+            orphaned = self.pending.get_all_orphaned_studies()
+            self.logger.warning(
+                f" Moving {len(orphaned)} orphaned studies to errored and trying "
+                f"again. Studies moved: {[x.study_id for x in orphaned]}")
+            self.errored.push_studies(orphaned)
+            studies = self.pending.get_all_studies()
+
         self.logger.debug(f"Updating IDIS status for {len(studies)} pending jobs")
         self.pending.update_records(studies)
         self.logger.debug(

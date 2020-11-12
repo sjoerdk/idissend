@@ -69,9 +69,13 @@ class IDISSendRecordsSession:
 
     def get_for_study_folder(self, study_folder: Path) -> Optional[PendingAnonRecord]:
         """Get record for the given study folder. Returns None if not found"""
+        raise NotImplementedError("Use get_for_study_id!")
+
+    def get_for_study_id(self, study_id: str) -> Optional[PendingAnonRecord]:
+        """Get first record for the given study id. Returns None if not found"""
         return (
             self.session.query(PendingAnonRecord)
-            .filter(PendingAnonRecord.study_folder == study_folder)
+            .filter(PendingAnonRecord.study_id == study_id)
             .first()
         )
 
@@ -85,7 +89,7 @@ class IDISSendRecordsSession:
 
     def add(
         self,
-        study_folder: Path,
+        study_id: str,
         job_id: int,
         server_name: str,
         last_status: Optional[str] = None,
@@ -98,7 +102,7 @@ class IDISSendRecordsSession:
         """
 
         record = PendingAnonRecord(
-            study_folder=study_folder,
+            study_id=study_id,
             job_id=job_id,
             server_name=server_name,
             last_status=last_status,

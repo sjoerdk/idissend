@@ -44,7 +44,7 @@ class Stream:
         Parameters
         ----------
         name: str
-            Name of this stream, doubles as folder name
+            Name of this stream, doubles as folder study_id
         output_folder: Path
             Final destination of the data. Full UNC path
         idis_profile_name:
@@ -87,15 +87,26 @@ class IncomingFile:
 
 
 class Study:
-    """A folder containing files that all belong to the same study """
+    """A folder containing files that all belong to the same study"""
 
-    def __init__(self, name: str, stream: Stream, stage: "Stage"):
-        self.name = name
+    def __init__(self, study_id: str, stream: Stream, stage: "Stage"):
+        """
+
+        Parameters
+        ----------
+        study_id: str
+            Unique identifier for this study.
+        stream: Stream
+            The stream that this study is in
+        stage: Stage
+            The stage that this study is in
+        """
+        self.study_id = study_id
         self.stream = stream
         self.stage = stage
 
     def __str__(self):
-        return f"{self.stream}:{self.name}"
+        return f"{self.stream}:{self.study_id}"
 
     def get_path(self) -> Path:
         """Full path to the folder that data for this study is in"""
@@ -145,7 +156,7 @@ class Stage:
         Parameters
         ----------
         name: str
-            Human readable name for this stage
+            Human readable study_id for this stage
         path: str
             Root path of this folder
         streams: List[Stream]
@@ -207,7 +218,7 @@ class Stage:
 
         # create new study that is in this stage
         original_study = study  # keep original for possible rollback
-        new_study = Study(name=study.name, stream=stream, stage=self)
+        new_study = Study(study_id=study.study_id, stream=stream, stage=self)
 
         # now move the data from original to new
         try:
@@ -267,7 +278,7 @@ class Stage:
     def get_path_for_study(self, study: Study) -> Path:
         """Get the folder where data is for this study"""
 
-        return self.get_path_for_stream(study.stream) / study.name
+        return self.get_path_for_stream(study.stream) / study.study_id
 
     def get_all_studies(self) -> List[Study]:
         """Get all studies for all streams in this stage
@@ -292,7 +303,7 @@ class Stage:
         """
         studies = []
         for folder in [x for x in self.get_path_for_stream(stream).glob("*")]:
-            studies.append(Study(name=folder.name, stream=stream, stage=self))
+            studies.append(Study(study_id=folder.name, stream=stream, stage=self))
 
         return studies
 

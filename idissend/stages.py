@@ -40,7 +40,7 @@ class CoolDown(Stage):
         Parameters
         ----------
         name: str
-            Human readable name for this stage
+            Human readable study_id for this stage
         path: str
             Root path of this folder
         streams: List[Stream]
@@ -84,12 +84,12 @@ class IDISConnection:
         return f"Connection with IDIS servers {[str(x) for x in self.servers]}"
 
     def get_server(self, server_name) -> RemoteAnonServer:
-        """Find the IDIS server with the given name
+        """Find the IDIS server with the given study_id
 
         Raises
         ------
         UnknownServerException
-            When no server can be found with that name
+            When no server can be found with that study_id
         """
         server = {x.name: x for x in self.servers}.get(server_name)
         if server:
@@ -105,9 +105,9 @@ class PendingStudy(Study):
     """A study pending anonymization. Has additional links to check its status"""
 
     def __init__(
-        self, name: str, stream: Stream, stage: Stage, record: PendingAnonRecord
+        self, study_id: str, stream: Stream, stage: Stage, record: PendingAnonRecord
     ):
-        super(PendingStudy, self).__init__(name, stream, stage)
+        super(PendingStudy, self).__init__(study_id, stream, stage)
         self.record = record
 
     @property
@@ -159,7 +159,7 @@ class PendingAnon(Stage):
         Parameters
         ----------
         name: str
-            Human readable name for this stage
+            Human readable study_id for this stage
         path: str
             Root path of this folder
         streams: List[Stream]
@@ -229,7 +229,7 @@ class PendingAnon(Stage):
         try:
             with self.records.get_session() as session:
                 record = session.add(
-                    study_folder=study.get_path(),
+                    study_id=study.study_id,
                     job_id=created.job_id,
                     server_name=server.name,
                 )
@@ -272,13 +272,13 @@ class PendingAnon(Stage):
         """
         if not record:
             with self.records.get_session() as session:
-                record = session.get_for_study_folder(study.get_path())
+                record = session.get_for_study_id(study.study_id)
         if not record:
             raise RecordNotFoundException(
                 f"{str(self)}: There is no record for {study}"
             )
         return PendingStudy(
-            name=study.name, stream=study.stream, stage=study.stage, record=record
+            study_id=study.study_id, stream=study.stream, stage=study.stage, record=record
         )
 
     def get_all_orphaned_studies(self) -> List[Study]:
@@ -298,9 +298,8 @@ class PendingAnon(Stage):
             records = session.get_all()
 
         studies = super(PendingAnon, self).get_all_studies()
-        study_paths = {x.get_path(): x for x in studies}
-        record_paths = set((x.study_folder for x in records))
-        return [y for x, y in study_paths.items() if x not in record_paths]
+        study_ids = set((x.study_id for x in records))
+        return [x for x in studies if x.study_id not in study_ids]
 
     def get_server(self, server_name: str) -> RemoteAnonServer:
         return self.idis_connection.get_server(server_name=server_name)

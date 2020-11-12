@@ -19,7 +19,7 @@ def test_db(a_sqlite_url):
 
     session = get_db_sessionmaker(a_sqlite_url)()
 
-    study_folder = Path("/tmp/a_path")
+    study_id = "a_path_1234"
     job_id = 123
     server_name = "p01"
     last_check = datetime.now()
@@ -27,7 +27,7 @@ def test_db(a_sqlite_url):
 
     assert not session.query(PendingAnonRecord).all()
     a_record = PendingAnonRecord(
-        study_folder=study_folder, job_id=job_id, server_name=server_name
+        study_id=study_id, job_id=job_id, server_name=server_name
     )
     session.add(a_record)
     session.commit()
@@ -47,7 +47,7 @@ def test_db(a_sqlite_url):
 
     session = get_db_sessionmaker(a_sqlite_url)()
     test = session.query(PendingAnonRecord).first()
-    assert test.study_folder == study_folder
+    assert test.study_id == study_id
     assert test.last_check == last_check
 
 
@@ -58,21 +58,15 @@ def test_idis_send_records(a_sqlite_url):
 
     with records.get_session() as session:
         assert not session.get_all()
-        session.add(study_folder=Path("test/something"), job_id=99, server_name="p03")
+        session.add(study_id="something", job_id=99, server_name="p03")
 
-        session.add(study_folder=Path("test/something2"), job_id=100, server_name="p03")
+        session.add(study_id="something2", job_id=100, server_name="p03")
 
     with records.get_session() as session:
         assert len(session.get_all()) == 2
-        assert (
-            session.get_for_study_folder(study_folder=Path("test/something2")).job_id
-            == 100
-        )
-        assert not session.get_for_study_folder(study_folder=Path("test/something5"))
-
-        session.delete(
-            session.get_for_study_folder(study_folder=Path("test/something2"))
-        )
+        assert session.get_for_study_id("something2").job_id == 100
+        assert not session.get_for_study_id("something5")
+        session.delete(session.get_for_study_id("something2"))
 
     with records.get_session() as session:
         assert len(session.get_all()) == 1
@@ -83,14 +77,14 @@ def test_idis_send_records(a_sqlite_url):
 def test_object_field_persistence(a_sqlite_url):
     """Got into sqlalchemy object state trouble again.
     So when you create an ORM object, add it to as session, Expunge the object,
-     close the session, why are all the object's fields inaccessible?
-
+    close the session, why are all the object's fields inaccessible?
     """
+
     records = IDISSendRecords(session_maker=get_db_sessionmaker(a_sqlite_url))
 
     with records.get_session() as session:
         record = session.add(
-            study_folder=Path("test"), job_id=1, server_name="test_server"
+            study_id="test", job_id=1, server_name="test_server"
         )
     _ = record.server_name  # This should not raise an unbound exception
 

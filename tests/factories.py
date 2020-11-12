@@ -53,6 +53,6 @@ class StudyFactory(factory.Factory):
     class Meta:
         model = Study
 
-    name = factory.sequence(lambda n: f"study_{n}")
+    study_id = factory.sequence(lambda n: f"study_{n}")
     stream = factory.SubFactory(StreamFactory)
     stage = factory.SubFactory(StageFactory)

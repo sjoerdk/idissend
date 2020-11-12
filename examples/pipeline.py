@@ -103,7 +103,7 @@ pipeline = DefaultPipeline(
 )
 
 
-logging.basicConfig(format="%(asctime)s %(name)-40s %(levelname)-8s %(message)s")
+logging.basicConfig(format="%(asctime)s %(study_id)-40s %(levelname)-8s %(message)s")
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 

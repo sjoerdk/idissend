@@ -47,6 +47,6 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/sjoerdk/idissend",
-    version="2.0.4",
+    version="version='2.0.5'",
     zip_safe=False,
 )

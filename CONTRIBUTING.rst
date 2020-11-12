@@ -76,10 +76,11 @@ Ready to contribute? Here's how to set up `idissend` for local development.
 
    Now you can make your changes locally.
 
-5. When you're done making changes, check that your changes pass flake8 and the
+5. When you're done making changes, check that your changes pass pre-commit (flake8, black, etc)
    tests::
 
     $ python3 -m pip install pre-commit
+    $ pre-commit install
     $ pre-commit
 
 

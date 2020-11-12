@@ -6,10 +6,11 @@ from pathlib import Path
 
 class MockIncomingFile(IncomingFile):
     """An IncomingFile which does not check on disk but just returns a set age
-    value"""
+    value
+    """
 
     def __init__(self, path: Path, age: float):
-        super(MockIncomingFile, self).__init__(path)
+        super().__init__(path)
         self.age = lambda: age
 
 

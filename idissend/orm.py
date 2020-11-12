@@ -1,6 +1,4 @@
-"""Object Relational Map for mapping idissend objects to database tables
-
-"""
+"""Object Relational Map for mapping idissend objects to database tables"""
 from sqlalchemy.ext.declarative.api import declarative_base
 from sqlalchemy.sql.schema import Column
 from sqlalchemy.sql.sqltypes import Integer, String, DateTime

@@ -15,7 +15,6 @@ from idissend.pipeline import DefaultPipeline
 from idissend.stages import (
     Trash,
     IDISCommunicationException,
-    RecordNotFoundException,
     CoolDown,
 )
 
@@ -25,7 +24,8 @@ def a_pipeline(
     an_incoming_stage, an_empty_pending_stage, an_idis_connection, tmp_path, caplog
 ):
     """A default pipeline with all-mocked connections to outside servers.
-    Integration test light. Useful for checking log messages etc."""
+    Integration test light. Useful for checking log messages etc.
+    """
     # capture all logs
     caplog.set_level(logging.DEBUG)
 
@@ -48,7 +48,7 @@ def a_pipeline(
 
 
 def test_pipline_regular_operation(a_pipeline, caplog):
-    """ check logs for regular operation """
+    """Check logs for regular operation"""
     a_pipeline.run_once()
     a_pipeline.run_once()
 
@@ -76,7 +76,8 @@ def test_pipeline_idis_exceptions(a_pipeline, caplog, an_idis_connection):
 
 def test_pipeline_record_not_found_exception(a_pipeline, caplog, a_records_db):
     """What happens when a single record is not found. This can occur after errors,
-    or data for studies is somehow moved into the streams outside idissend"""
+    or data for studies is somehow moved into the streams outside idissend
+    """
 
     # push to pending and create IDIS jobs
     a_pipeline.run_once()  # import from incoming to pending
@@ -87,11 +88,10 @@ def test_pipeline_record_not_found_exception(a_pipeline, caplog, a_records_db):
 
     # running again will fail in the pending stage because one study now has no
     # record, so it is unknown which IDIS job has been made for it
-    #with pytest.raises(RecordNotFoundException):
+    # with pytest.raises(RecordNotFoundException):
     a_pipeline.run_once()  # import from incoming to pending
 
     # now record with exception should have been moved to errored, also, the
     # pipeline will receive one ERROR state for the remaining 2 jobs. So in
     # total 2 jobs should have been moved to error
     assert len(a_pipeline.errored.get_all_studies()) == 2
-

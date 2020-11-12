@@ -66,8 +66,7 @@ class Stream:
 
 
 class IncomingFile:
-    """A file which just came in to a folder. Allows checking of age()
-    """
+    """A file which just came in to a folder. Allows checking of age()"""
 
     def __init__(self, path: Path):
         self.path = path
@@ -76,12 +75,8 @@ class IncomingFile:
         return str(self.path)
 
     def age(self) -> float:
-        """Minutes since last modification of this file
+        """Minutes since last modification of this file"""
 
-        Raises
-        ------
-
-        """
         delta = datetime.now() - datetime.fromtimestamp(self.path.stat().st_mtime)
         return delta.total_seconds() / 60
 
@@ -236,7 +231,7 @@ class Stage:
                 str(original_study.stage.get_path_for_stream(study.stream)),
             )
             raise StudyPushException(e)
-        except (FileNotFoundError, OSError) as e:
+        except OSError as e:
             self.logger.warning(f"receiving {study} failed: {e}")
             raise StudyPushException(e)
 
@@ -265,7 +260,7 @@ class Stage:
         return study
 
     def get_path_for_stream(self, stream: Stream) -> Path:
-        """Get the folder where data is for this stream """
+        """Get the folder where data is for this stream"""
 
         return self.path / stream.name
 
@@ -281,8 +276,7 @@ class Stage:
         return self.get_path_for_stream(study.stream) / study.study_id
 
     def get_all_studies(self) -> List[Study]:
-        """Get all studies for all streams in this stage
-        """
+        """Get all studies for all streams in this stage"""
 
         studies = []
         for stream in self.streams:
@@ -291,15 +285,12 @@ class Stage:
         return studies
 
     def get_studies(self, stream: Stream) -> List[Study]:
-        """Get all studies for the given stream
-
-        """
+        """Get all studies for the given stream"""
         return self._get_studies(stream=stream)
 
     def _get_studies(self, stream: Stream) -> List[Study]:
-        """hidden method because get_studies itself can be overwritten in parent
+        """Hidden method because get_studies itself can be overwritten in parent
         classes
-
         """
         studies = []
         for folder in [x for x in self.get_path_for_stream(stream).glob("*")]:
@@ -311,7 +302,8 @@ class Stage:
         """Make sure paths to this stage and all stream in it exist
 
         Useful for initial testing of a stage: you don't have to remember
-        the exact paths for expected data"""
+        the exact paths for expected data
+        """
         for stream in self.streams:
             self.get_path_for_stream(stream).mkdir(parents=True, exist_ok=True)
 

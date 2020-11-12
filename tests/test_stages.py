@@ -10,14 +10,11 @@ from anonapi.testresources import (
     RemoteAnonServerFactory,
     JobInfoFactory,
     JobStatus,
-    MockAnonClientTool,
 )
 
 from idissend.core import StudyPushException
-from idissend.persistence import IDISSendRecords, get_memory_only_sessionmaker
 from idissend.stages import (
     PendingAnon,
-    IDISConnection,
     UnknownServerException,
     IDISCommunicationException,
     RecordNotFoundException,
@@ -37,7 +34,8 @@ def a_pending_anon_stage_with_data(an_empty_pending_stage, some_studies) -> Pend
 @pytest.fixture
 def a_trash_stage(a_pending_anon_stage_with_data, tmpdir) -> Trash:
     """A trash stage with temp path on disk and the same streams as
-    a_pending_anon_stage_with_data"""
+    a_pending_anon_stage_with_data
+    """
 
     trash = Trash(
         name="Trash",
@@ -59,8 +57,7 @@ def test_idis_connection(an_idis_connection):
 
 
 def test_pending_anon_push(an_empty_pending_stage, mock_anon_client_tool, a_study):
-    """Pending should create IDIS jobs when studies are pushed to it
-     """
+    """Pending should create IDIS jobs when studies are pushed to it"""
     # make sure initial state is as expected:
     assert len(mock_anon_client_tool.mock_calls) == 0  # No calls to IDIS
     with an_empty_pending_stage.records.get_session() as session:
@@ -79,8 +76,9 @@ def test_pending_anon_push(an_empty_pending_stage, mock_anon_client_tool, a_stud
 def test_pending_anon_push_unc_paths(
     an_empty_pending_stage, mock_anon_client_tool, a_study
 ):
-    """ Created jobs should have UNC input and output. Otherwise IDIS will just
-    choke on them (design flaw definitely)"""
+    """Created jobs should have UNC input and output. Otherwise IDIS will just
+    choke on them (design flaw definitely)
+    """
 
     # study with local source and destination. As is these paths make no sense
     # on an IDIS server
@@ -124,8 +122,7 @@ def test_pending_anon_push_unc_paths(
 def test_pending_anon_push_idis_exception(
     an_empty_pending_stage, mock_anon_client_tool, a_study
 ):
-    """Pending should create IDIS jobs. What happens when these fail?
-     """
+    """Pending should create IDIS jobs. What happens when these fail?"""
     # contact IDIS will not work
     mock_anon_client_tool.create_path_job = Mock(
         side_effect=ClientToolException("Terrible API error")
@@ -142,8 +139,7 @@ def test_pending_anon_push_idis_exception(
 def test_pending_anon_check_status(
     mock_anon_client_tool, a_pending_anon_stage_with_data
 ):
-    """A pending stage should be able to check on job status with IDIS
-    """
+    """A pending stage should be able to check on job status with IDIS"""
 
     stage = a_pending_anon_stage_with_data
 
@@ -173,9 +169,7 @@ def test_pending_anon_check_status(
 def test_pending_anon_check_status_exceptions(
     mock_anon_client_tool, a_pending_anon_stage_with_data
 ):
-    """Handle errors in interaction with IDIS gracefully
-
-    """
+    """Handle errors in interaction with IDIS gracefully"""
 
     stage = a_pending_anon_stage_with_data
     studies = stage.get_all_studies()
@@ -200,8 +194,7 @@ def test_pending_anon_check_status_exceptions(
 def test_pending_anon_missing_record(
     a_pending_anon_stage_with_data, a_trash_stage, mock_anon_client_tool, a_records_db
 ):
-    """Pending stage should be able to handle missing records
-     """
+    """Pending stage should be able to handle missing records"""
     # This stage has 3 studies already pushed to it. Verify studies,
     # IDIS jobs and records
     pending = a_pending_anon_stage_with_data

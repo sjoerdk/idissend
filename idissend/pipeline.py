@@ -1,20 +1,19 @@
-""" core and stages define the pieces of a pipeline,
+"""core and stages define the pieces of a pipeline,
 this module has classes and methods for the relationships between them
 """
 
 
 import logging
 
-from anonapi.client import AnonClientTool
-from anonapi.objects import RemoteAnonServer
-from anonapi.paths import UNCMapping, UNCMap, UNCPath
 from anonapi.responses import JobStatus
 from collections import Counter
-from idissend.core import Stream, Person, Stage
-from idissend.persistence import IDISSendRecords, get_db_sessionmaker
-from idissend.stages import CoolDown, PendingAnon, IDISConnection, \
-    RecordNotFoundException, Trash
-from pathlib import Path
+from idissend.core import Stage
+from idissend.stages import (
+    CoolDown,
+    PendingAnon,
+    RecordNotFoundException,
+    Trash,
+)
 
 
 class DefaultPipeline:
@@ -85,7 +84,8 @@ class DefaultPipeline:
             orphaned = self.pending.get_all_orphaned_studies()
             self.logger.warning(
                 f" Moving {len(orphaned)} orphaned studies to errored and trying "
-                f"again. Studies moved: {[x.study_id for x in orphaned]}")
+                f"again. Studies moved: {[x.study_id for x in orphaned]}"
+            )
             self.errored.push_studies(orphaned)
             studies = self.pending.get_all_studies()
 

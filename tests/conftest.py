@@ -1,4 +1,5 @@
-"""Conftest.py is loaded for each pytest. Contains fixtures shared by multiple tests
+"""Conftest.py is loaded for each pytest.
+Contains fixtures shared by multiple tests.
 """
 import shutil
 from pathlib import Path
@@ -22,13 +23,13 @@ from tests.factories import StreamFactory
 
 @pytest.fixture
 def some_studies(an_incoming_stage) -> List[Study]:
-    """some studies in the incoming stage with some actual data on disk"""
+    """Some studies in the incoming stage with some actual data on disk."""
     return an_incoming_stage.get_all_studies()
 
 
 @pytest.fixture
 def a_study(some_studies) -> Study:
-    """A study in the incoming stage with some actual data on disk"""
+    """A study in the incoming stage with some actual data on disk."""
     return some_studies[0]
 
 
@@ -82,7 +83,8 @@ def an_incoming_stage(an_idssend_structured_folder, some_streams) -> CoolDown:
 def an_empty_pending_stage(
     some_streams, an_idis_connection, tmpdir, a_records_db
 ) -> PendingAnon:
-    """An empty pending stage with a mocked connection to IDIS and mocked records db
+    """An empty pending stage with a mocked connection to IDIS and mocked
+    records db
     """
     return PendingAnon(
         name="pending",
@@ -111,7 +113,8 @@ def a_records_db() -> IDISSendRecords:
 @pytest.fixture
 def mock_anon_client_tool(monkeypatch):
     """An anonymization API client tool that does not hit the server but returns
-    some example responses instead. Also records calls"""
+    some example responses instead. Also records calls
+    """
     some_responses = [
         JobInfoFactory(status=JobStatus.DONE),
         JobInfoFactory(status=JobStatus.ERROR),

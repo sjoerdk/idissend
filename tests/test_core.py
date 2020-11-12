@@ -35,8 +35,7 @@ def test_cooldown(monkeypatch):
 
 
 def test_push_study(an_incoming_stage, some_stages):
-    """Basic transfer of studies between stages
-    """
+    """Basic transfer of studies between stages"""
     incoming = an_incoming_stage
     stage1 = some_stages[0]
 
@@ -53,16 +52,14 @@ def test_push_study(an_incoming_stage, some_stages):
 
 
 def test_push_study_exception_missing_stream(a_stage, a_study):
-    """Stream does not exist in target stage
-    """
+    """Stream does not exist in target stage"""
     a_stage.streams.remove(a_study.stream)
     with pytest.raises(StudyPushException):
         a_stage.push_study(a_study)
 
 
 def test_push_study_exceptions(a_stage, a_study):
-    """ Data does not exist for study (unexpected but not impossible)
-    """
+    """Data does not exist for study (unexpected but not impossible)"""
     # remove data for study
     a_study.get_path().rename(a_study.get_path().parent / "removed")
     with pytest.raises(StudyPushException):
@@ -70,15 +67,13 @@ def test_push_study_exceptions(a_stage, a_study):
 
 
 def test_push_study_to_itself(a_study):
-    """ Cannot push to a stage a study is in already
-    """
+    """Cannot push to a stage a study is in already"""
     with pytest.raises(StudyPushException):
         a_study.stage.push_study(a_study)
 
 
 def test_push_study_callback_fail(a_stage, a_study):
-    """push callback fails for some reason on target stage
-    """
+    """Push callback fails for some reason on target stage"""
 
     assert len(a_study.stage.get_all_studies()) == 3
     assert len(a_stage.get_all_studies()) == 0
@@ -96,8 +91,7 @@ def test_push_study_callback_fail(a_stage, a_study):
 
 
 def test_push_study_out_of_space(a_stage, a_study, monkeypatch):
-    """out of space on target stage
-    """
+    """Out of space on target stage"""
     monkeypatch.setattr(
         "idissend.core.shutil.move", Mock(side_effect=IOError("out of space"))
     )

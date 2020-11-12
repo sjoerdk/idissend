@@ -50,19 +50,15 @@ class CoolDown(Stage):
             CoolDown is measured against the last modification date of any file
             in the study. Defaults to 5 minutes
         """
-        super(CoolDown, self).__init__(name=name, path=path, streams=streams)
+        super().__init__(name=name, path=path, streams=streams)
         self.cool_down = cool_down
 
     def get_all_studies(self) -> List[Study]:
-        """Get all studies for all streams in this folder
-
-        """
-        return super(CoolDown, self).get_all_studies()
+        """Get all studies for all streams in this folder"""
+        return super().get_all_studies()
 
     def get_all_cooled_studies(self) -> List[Study]:
-        """Get all studies which have not changed in the cool down period
-
-        """
+        """Get all studies which have not changed in the cool down period"""
         return [x for x in self.get_all_studies() if self.has_cooled_down(x)]
 
     def has_cooled_down(self, study: Study) -> bool:
@@ -107,7 +103,7 @@ class PendingStudy(Study):
     def __init__(
         self, study_id: str, stream: Stream, stage: Stage, record: PendingAnonRecord
     ):
-        super(PendingStudy, self).__init__(study_id, stream, stage)
+        super().__init__(study_id, stream, stage)
         self.record = record
 
     @property
@@ -173,7 +169,7 @@ class PendingAnon(Stage):
             only UNC paths get sent to IDIS. If not given, use any paths as-is
         """
 
-        super(PendingAnon, self).__init__(name=name, path=path, streams=streams)
+        super().__init__(name=name, path=path, streams=streams)
         self.idis_connection = idis_connection
         self.records = records
         self.unc_mapping = unc_mapping
@@ -240,7 +236,7 @@ class PendingAnon(Stage):
         return self.to_pending_study(study=study, record=record)
 
     def get_all_studies(self) -> List[PendingStudy]:
-        """PendingAnon returns PendingStudy objects, which hold additional info on
+        """Returns PendingStudy objects, which hold additional info on
         IDIS job status
 
         Raises
@@ -252,9 +248,7 @@ class PendingAnon(Stage):
         return [self.to_pending_study(x) for x in studies]
 
     def get_studies(self, stream: Stream) -> List[PendingStudy]:
-        """Get all studies for the given stream
-
-        """
+        """Get all studies for the given stream"""
         return [self.to_pending_study(x) for x in super().get_studies(stream=stream)]
 
     def to_pending_study(
@@ -284,7 +278,10 @@ class PendingAnon(Stage):
                 f"{str(self)}: There is no record for {study}"
             )
         return PendingStudy(
-            study_id=study.study_id, stream=study.stream, stage=study.stage, record=record
+            study_id=study.study_id,
+            stream=study.stream,
+            stage=study.stage,
+            record=record,
         )
 
     def get_all_orphaned_studies(self) -> List[Study]:
@@ -303,8 +300,8 @@ class PendingAnon(Stage):
         with self.records.get_session() as session:
             records = session.get_all()
 
-        studies = super(PendingAnon, self).get_all_studies()
-        study_ids = set((x.study_id for x in records))
+        studies = super().get_all_studies()
+        study_ids = {x.study_id for x in records}
         return [x for x in studies if x.study_id not in study_ids]
 
     def get_server(self, server_name: str) -> RemoteAnonServer:
@@ -373,13 +370,14 @@ class Trash(Stage):
     """Where studies are sent after they have been anonymized.
 
     Can be emptied kind of prudently (Keep as much as possible but also keep
-    enough space left)"""
+    enough space left)
+    """
 
     def delete_all(self):
-        """delete data for all studies in trash"""
+        """Delete data for all studies in trash"""
         studies = self.get_all_studies()
         self.logger.info(
-            f"Removing data for {len(studies)} studies: " f"{[str(x) for x in studies]}"
+            f"Removing data for {len(studies)} studies: {[str(x) for x in studies]}"
         )
         for study in studies:
             shutil.rmtree(study.get_path())

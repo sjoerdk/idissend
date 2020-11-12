@@ -1,5 +1,4 @@
-"""Classes and functions to be able to hold on to records beyond python executions
-"""
+"""Classes and functions to be able to hold on to records beyond python executions"""
 import sqlalchemy
 
 from datetime import datetime

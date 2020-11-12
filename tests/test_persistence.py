@@ -10,7 +10,7 @@ from idissend.persistence import get_db_sessionmaker, IDISSendRecords
 @pytest.fixture
 def a_sqlite_url(tmpdir):
     db_file = Path(tmpdir) / "test_db.sqlite"
-    db_url = f'sqlite:///{db_file}'
+    db_url = f"sqlite:///{db_file}"
     return db_url
 
 
@@ -52,7 +52,7 @@ def test_db(a_sqlite_url):
 
 
 def test_idis_send_records(a_sqlite_url):
-    """the records object makes interacting with db slightly cleaner """
+    """The records object makes interacting with db slightly cleaner"""
 
     records = IDISSendRecords(session_maker=get_db_sessionmaker(a_sqlite_url))
 
@@ -83,9 +83,7 @@ def test_object_field_persistence(a_sqlite_url):
     records = IDISSendRecords(session_maker=get_db_sessionmaker(a_sqlite_url))
 
     with records.get_session() as session:
-        record = session.add(
-            study_id="test", job_id=1, server_name="test_server"
-        )
+        record = session.add(study_id="test", job_id=1, server_name="test_server")
     _ = record.server_name  # This should not raise an unbound exception
 
     # now can be change this unbound object and then commit the results?

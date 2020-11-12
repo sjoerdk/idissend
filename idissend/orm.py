@@ -27,7 +27,7 @@ class PathType(TypeDecorator):
 
 
 class PendingAnonRecord(Base):
-    """Records for studies that er pending anonymization"""
+    """Records for studies that are pending anonymization"""
 
     __tablename__ = "pending_anon"
 

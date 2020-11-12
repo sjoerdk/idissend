@@ -50,7 +50,7 @@ class IDISSendRecordsSession:
         returned by IDISSendRecordsSession methods.
 
         By default, sqlalchemy will invalidate any object fields after close.
-        This can be stopped by expunge, but this only saved fields that have been
+        This can be stopped by expunge, but this only saves fields that have been
         accessed before. This is quite annoying here because sessions are quite
         short lived and often not all fields are accessed. Instead of hacking
         something to access all fields, the following amazing commands will do:

@@ -15,6 +15,7 @@ from idissend.persistence import IDISSendRecords, get_db_sessionmaker
 from idissend.stages import CoolDown, PendingAnon, IDISConnection, Trash
 from pathlib import Path
 
+
 class DefaultPipeline:
     """Standard version of a idissend pipeline: data comes in, is exposed to IDIS for
     anonymization, then ends up in completed. There are trash and errorred stages to

@@ -4,13 +4,15 @@ this module has classes and methods for the relationships between them
 
 
 import logging
+from typing import List
 
 from anonapi.responses import JobStatus
 from collections import Counter
-from idissend.core import Stage
+from idissend.core import Stage, random_string
 from idissend.stages import (
     CoolDown,
     PendingAnon,
+    PendingStudy,
     RecordNotFoundException,
     Trash,
 )
@@ -37,6 +39,7 @@ class DefaultPipeline:
     def __init__(
         self,
         incoming: CoolDown,
+        cooled_down: Stage,
         pending: PendingAnon,
         finished: CoolDown,
         trash: Trash,
@@ -47,7 +50,9 @@ class DefaultPipeline:
         Parameters
         ----------
         incoming: CoolDown
-            Data comes in here
+            Data comes in here. Might contain duplicate ids
+        cooled_down: Stage
+            Data that has cooled down is renamed to insure unique id and put here
         pending: PendingAnon
             Data waits here to be downloaded and anonymized by IDIS
         finished: CoolDown
@@ -58,6 +63,7 @@ class DefaultPipeline:
             Holds studies with errors, either in IDIS or in pipeline itself
         """
         self.incoming = incoming
+        self.cooled_down = cooled_down
         self.pending = pending
         self.finished = finished
         self.trash = trash
@@ -77,6 +83,56 @@ class DefaultPipeline:
 
         self.logger.info("Running once")
 
+        studies = self.get_pending_studies()
+
+        self.update_idis_status(studies)
+
+        self.logger.debug("Checking for incoming studies that are now complete")
+        cooled_down_studies = self.incoming.get_all_cooled_studies()
+        self.logger.debug(
+            f"Found {len(cooled_down_studies)}. Pushing to cooled_down"
+            f" and renaming to avoid duplicate ids"
+        )
+        for study in cooled_down_studies:
+            new_id = study.study_id + random_string(8)
+            self.logger.debug(f"Pushing {study.study_id}, renaming to {new_id}")
+            self.cooled_down.push_study(study, study_id=new_id)
+
+        self.logger.debug("Moving cooled down studies to pending for anonymization")
+        self.pending.push_studies(self.cooled_down.get_all_studies())
+
+        self.logger.debug("Empty old trash")
+        self.trash.delete_all()
+
+        self.logger.debug(
+            f"Moving finished studies older than "
+            f"{self.finished.cool_down} minutes to trash"
+        )
+        self.trash.push_studies(self.finished.get_all_cooled_studies())
+
+    def update_idis_status(self, studies: List[PendingStudy]):
+        """Query IDIS to update the status of all given studies"""
+
+        self.logger.debug(f"Updating IDIS status for {len(studies)} pending jobs")
+        self.pending.update_records(studies)
+        self.logger.debug(
+            f"Found {str(dict(Counter([x.last_status for x in studies])))}."
+            f" Taking action based on status"
+        )
+        self.finished.push_studies(
+            [x for x in studies if x.last_status == JobStatus.DONE]
+        )
+        self.trash.push_studies(
+            [x for x in studies if x.last_status == JobStatus.INACTIVE]
+        )
+        self.errored.push_studies(
+            [x for x in studies if x.last_status == JobStatus.ERROR]
+        )
+
+    def get_pending_studies(self):
+        """Find all studies that have been sent to IDIS and are pending
+        anonymization. Move studies to errored if things go wrong
+        """
         try:
             studies = self.pending.get_all_studies()
         except RecordNotFoundException as e:
@@ -88,37 +144,7 @@ class DefaultPipeline:
             )
             self.errored.push_studies(orphaned)
             studies = self.pending.get_all_studies()
-
-        self.logger.debug(f"Updating IDIS status for {len(studies)} pending jobs")
-        self.pending.update_records(studies)
-        self.logger.debug(
-            f"Found {str(dict(Counter([x.last_status for x in studies])))}."
-            f" Taking action based on status"
-        )
-
-        self.finished.push_studies(
-            [x for x in studies if x.last_status == JobStatus.DONE]
-        )
-        self.trash.push_studies(
-            [x for x in studies if x.last_status == JobStatus.INACTIVE]
-        )
-        self.errored.push_studies(
-            [x for x in studies if x.last_status == JobStatus.ERROR]
-        )
-
-        self.logger.debug("Checking for new studies coming in")
-        cooled_down = self.incoming.get_all_cooled_studies()
-        self.logger.debug(f"Found {len(cooled_down)}. Pushing to pending")
-        self.pending.push_studies(cooled_down)
-
-        self.logger.debug("empty old trash")
-        self.trash.delete_all()
-
-        self.logger.debug(
-            f"Moving finished studies older than "
-            f"{self.finished.cool_down} minutes to trash"
-        )
-        self.trash.push_studies(self.finished.get_all_cooled_studies())
+        return studies
 
     def get_status(self) -> str:
         """Status for all stages"""

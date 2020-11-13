@@ -32,6 +32,9 @@ def a_pipeline(
     # make sure all stages have the same streams
     streams = an_incoming_stage.streams
     an_empty_pending_stage.streams = streams
+    cooled_down = Stage(
+        name="cooled_down", path=Path(tmp_path) / "cooled_down", streams=streams
+    )
     finished = CoolDown(
         name="finished", path=Path(tmp_path) / "finished", streams=streams, cool_down=0
     )
@@ -40,6 +43,7 @@ def a_pipeline(
 
     return DefaultPipeline(
         incoming=an_incoming_stage,
+        cooled_down=cooled_down,
         pending=an_empty_pending_stage,
         finished=finished,
         trash=trash,

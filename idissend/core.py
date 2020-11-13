@@ -1,11 +1,14 @@
 """Core concepts in idissend"""
 import logging
+import random
 import shutil
+import string
 
 from datetime import datetime
+
 from idissend.exceptions import IDISSendException
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 
 class Person:
@@ -181,15 +184,20 @@ class Stage:
 
         return pushed
 
-    def push_study(self, study: Study, stream: Stream = None) -> Study:
+    def push_study(
+        self, study: Study, stream: Stream = None, study_id: Optional[str] = None
+    ) -> Study:
         """Push the given study to this stage. Optionally set stream.
 
         Parameters
         ----------
         study: Study
             Send the data in this study
-        stream: Stream, optional
+        stream: Optional[Stream]
             If given, push to this stream. Otherwise use study.stream
+        study_id: Optional[str]
+            If given, give study this ID in this stage. Otherwise use
+            study.study_id
 
         Raises
         ------
@@ -211,9 +219,12 @@ class Stage:
         else:
             raise StudyPushException(f"Stream '{stream}' " f"does not exist in {self}")
 
+        if study_id is None:
+            study_id = study.study_id
+
         # create new study that is in this stage
         original_study = study  # keep original for possible rollback
-        new_study = Study(study_id=study.study_id, stream=stream, stage=self)
+        new_study = Study(study_id=study_id, stream=stream, stage=self)
 
         # now move the data from original to new
         try:
@@ -306,6 +317,17 @@ class Stage:
         """
         for stream in self.streams:
             self.get_path_for_stream(stream).mkdir(parents=True, exist_ok=True)
+
+
+def random_string(k: int) -> str:
+    """A random string of uppercase letters + digits, like '2KVDU2D9'
+
+    Parameters
+    ----------
+    k: int
+        string length
+    """
+    return "".join(random.choices(string.ascii_uppercase + string.digits, k=k))
 
 
 class UnknownStreamException(IDISSendException):

@@ -17,7 +17,6 @@ from idissend.pipeline import DefaultPipeline
 from idissend.stages import CoolDown, PendingAnon, IDISConnection, Trash
 
 # parameters #
-
 BASE_PATH = Path("/tmp/idissend")  # all data for all stages goes here
 STAGES_BASE_PATH = BASE_PATH / "stages"
 
@@ -69,6 +68,10 @@ incoming = CoolDown(
     name="incoming", path=STAGES_BASE_PATH / "incoming", streams=streams, cool_down=0
 )
 
+cooled_down = Stage(
+    name="cooled_down", path=STAGES_BASE_PATH / "cooled_down", streams=streams
+)
+
 connection = IDISConnection(
     client_tool=AnonClientTool(username=IDIS_USERNAME, token=IDIS_TOKEN),
     servers=[
@@ -99,7 +102,12 @@ finished = CoolDown(
 trash = Trash(name="trash", path=STAGES_BASE_PATH / "trash", streams=streams)
 
 pipeline = DefaultPipeline(
-    incoming=incoming, pending=pending, finished=finished, trash=trash, errored=errored
+    incoming=incoming,
+    cooled_down=cooled_down,
+    pending=pending,
+    finished=finished,
+    trash=trash,
+    errored=errored,
 )
 
 
@@ -109,5 +117,5 @@ logger.setLevel(logging.DEBUG)
 
 logger.info("Running once")
 
-pipeline.incoming.incoming.assert_all_paths()
+pipeline.incoming.assert_all_paths()
 pipeline.run_once()

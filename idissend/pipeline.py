@@ -68,7 +68,7 @@ class DefaultPipeline:
         self.finished = finished
         self.trash = trash
         self.errored = errored
-        self.all_stages = [incoming, pending, finished, trash, errored]
+        self.all_stages = [incoming, cooled_down, pending, finished, trash, errored]
         self.logger = logging.getLogger(__name__)
 
     def run_once(self):
@@ -94,7 +94,7 @@ class DefaultPipeline:
             f" and renaming to avoid duplicate ids"
         )
         for study in cooled_down_studies:
-            new_id = study.study_id + random_string(8)
+            new_id = study.study_id + "_" + random_string(8)
             self.logger.debug(f"Pushing {study.study_id}, renaming to {new_id}")
             self.cooled_down.push_study(study, study_id=new_id)
 

@@ -227,10 +227,13 @@ class Stage:
         new_study = Study(study_id=study_id, stream=stream, stage=self)
 
         # now move the data from original to new
+        if new_study.get_path().exists():
+            raise StudyPushException(
+                f"Study {new_study} at {new_study.get_path()} " f"already exists"
+            )
         try:
             shutil.move(
-                str(original_study.get_path()),
-                str(new_study.stage.get_path_for_stream(stream)),
+                str(original_study.get_path()), str(new_study.get_path()),
             )
             return self.push_study_callback(new_study)
 

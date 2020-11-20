@@ -2,53 +2,13 @@
 Integration test of a pipeline consisting of different streams and stages.
 For testing log messages etc.
 """
-import logging
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 from anonapi.client import ClientToolException
 
-from idissend.core import Stage
 from idissend.exceptions import IDISSendException
-from idissend.pipeline import DefaultPipeline
-from idissend.stages import (
-    Trash,
-    IDISCommunicationException,
-    CoolDown,
-)
-
-
-@pytest.fixture
-def a_pipeline(
-    an_incoming_stage, an_empty_pending_stage, an_idis_connection, tmp_path, caplog
-):
-    """A default pipeline with all-mocked connections to outside servers.
-    Integration test light. Useful for checking log messages etc.
-    """
-    # capture all logs
-    caplog.set_level(logging.DEBUG)
-
-    # make sure all stages have the same streams
-    streams = an_incoming_stage.streams
-    an_empty_pending_stage.streams = streams
-    cooled_down = Stage(
-        name="cooled_down", path=Path(tmp_path) / "cooled_down", streams=streams
-    )
-    finished = CoolDown(
-        name="finished", path=Path(tmp_path) / "finished", streams=streams, cool_down=0
-    )
-    trash = Trash(name="Trash", path=Path(tmp_path) / "trash", streams=streams)
-    errored = Stage(name="errored", path=Path(tmp_path) / "errored", streams=streams)
-
-    return DefaultPipeline(
-        incoming=an_incoming_stage,
-        cooled_down=cooled_down,
-        pending=an_empty_pending_stage,
-        finished=finished,
-        trash=trash,
-        errored=errored,
-    )
+from idissend.stages import IDISCommunicationException
 
 
 def test_pipline_regular_operation(a_pipeline, caplog):

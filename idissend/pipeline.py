@@ -4,43 +4,116 @@ this module has classes and methods for the relationships between them
 
 
 import logging
-from pathlib import Path
-from typing import List
-
-from anonapi.client import AnonClientTool
-from anonapi.objects import RemoteAnonServer
-from anonapi.paths import UNCMap, UNCMapping, UNCPath
+from itertools import chain
+from typing import Iterator, List
 
 from anonapi.responses import JobStatus
 from collections import Counter
-from idissend.core import Person, Stage, Stream, random_string
-from idissend.persistence import IDISSendRecords, get_db_sessionmaker
+from idissend.core import Stage, Study, random_string
+from idissend.exceptions import IDISSendException
 from idissend.stages import (
     CoolDown,
-    IDISConnection,
     PendingAnon,
-    PendingStudy,
+    IDISStudy,
     RecordNotFoundException,
     Trash,
 )
 
 
-class DefaultPipeline:
-    """Standard version of a idissend pipeline: data comes in, is exposed to IDIS for
-    anonymization, then ends up in completed. There are trash and errorred stages to
-    hold studies if needed
+class Pipeline:
+    """A collection of linked stages and streams
+
+    This is a base class that does not define any processing logic. To add
+    logic on what to do with studies, extend in a Child class
 
     Responsibilities
     ----------------
     Pipeline does:
-    * Inspect status and studies of stages
+    * Inspect stages, check studies in it
     * Push studies between stages if needed
     * log errors raised by stages, but not necessarily catch
 
     Pipeline does NOT:
     * Handle any actual files (this is up to the stage)
     * Handle any rollback on error (this is also up to the stage)
+    """
 
+    def __init__(self, stages: List[Stage]):
+        self.stages = stages
+
+    def get_stage(self, name: str) -> Stage:
+        """Return first stage in this pipeline that has the given name
+
+        Parameters
+        ----------
+        name: str
+            Name of the stage
+
+        Raises
+        ------
+        ObjectNotFound
+            If no stage by that name is defined
+        """
+        try:
+            return next(stage for stage in self.stages if stage.name == name)
+        except StopIteration:
+            raise ObjectNotFound(
+                f"Stage '{name}' not found in " f"{[x.name for x in self.stages]}"
+            )
+
+    def get_study_iter(self) -> Iterator[Study]:
+        """Iterates through each study in this pipeline"""
+        return chain(*(y.get_all_studies() for y in self.stages))
+
+    def get_studies(self, study_ids: List[str]) -> List[Study]:
+        """Find studies with given IDs
+
+        Parameters
+        ----------
+        study_ids: List[str]
+            study_id of each study to find
+
+        Raises
+        ------
+        ObjectNotFound
+            If any study can be found
+        """
+        to_find = study_ids
+        study_iter = self.get_study_iter()
+        found = []
+        try:
+            while to_find:
+                study = next(study_iter)
+                if study.study_id in to_find:
+                    found.append(study)
+                    to_find.remove(study.study_id)
+        except StopIteration:
+            raise ObjectNotFound(f"Studies '{to_find}' not found in pipeline")
+
+        return found
+
+    def get_status(self) -> str:
+        """Status for all stages"""
+        status_lines = []
+        for stage in self.stages:
+            studies = stage.get_all_studies()
+            status_lines.append(
+                f"{stage.name} contains {len(studies)} "
+                f"studies: {[str(x) for x in studies]}"
+            )
+
+        return "\n".join(status_lines)
+
+    def assert_all_paths(self):
+        """Make sure folders for each stage and stream in this pipeline exist"""
+        for stage in self.stages:
+            stage.assert_all_paths()
+
+
+class IDISPipeline(Pipeline):
+    """Standard version of a idissend pipeline: data comes in, is exposed to IDIS for
+    anonymization, then ends up in completed. There are trash and errorred stages to
+    hold studies if needed
     """
 
     def __init__(
@@ -75,7 +148,9 @@ class DefaultPipeline:
         self.finished = finished
         self.trash = trash
         self.errored = errored
-        self.all_stages = [incoming, cooled_down, pending, finished, trash, errored]
+        super().__init__(
+            stages=[incoming, cooled_down, pending, finished, trash, errored]
+        )
         self.logger = logging.getLogger(__name__)
 
     def run_once(self):
@@ -117,7 +192,7 @@ class DefaultPipeline:
         )
         self.trash.push_studies(self.finished.get_all_cooled_studies())
 
-    def update_idis_status(self, studies: List[PendingStudy]):
+    def update_idis_status(self, studies: List[IDISStudy]):
         """Query IDIS to update the status of all given studies"""
 
         self.logger.debug(f"Updating IDIS status for {len(studies)} pending jobs")
@@ -153,131 +228,6 @@ class DefaultPipeline:
             studies = self.pending.get_all_studies()
         return studies
 
-    def get_status(self) -> str:
-        """Status for all stages"""
-        status_lines = []
-        for stage in self.all_stages:
-            studies = stage.get_all_studies()
-            status_lines.append(
-                f"{stage.name} contains {len(studies)} "
-                f"studies: {[str(x) for x in studies]}"
-            )
 
-        return "\n".join(status_lines)
-
-    def assert_all_paths(self):
-        """Make sure folders for each stage and stream in this pipeline exist"""
-        for stage in self.all_stages:
-            stage.assert_all_paths()
-
-
-def get_pipeline_instance(base_path: str = "/tmp/idissend") -> DefaultPipeline:
-    """Generate a pipeline instance based at the given path
-
-    Parameters
-    ----------
-    base_path: str
-        root path for all data in this pipeline
-
-    Returns
-    -------
-    DefaultPipeline
-        A default pipeline instance with a lot of default settings
-
-    """
-    # parameters #
-    base_path = Path(base_path)  # all data for all stages goes here
-    stages_base_path = base_path / "stages"
-
-    default_idis_profile_name = "An_idis_profile"  # anonymize with this profile
-    default_pims_key = "123"  # Pass this to IDIS for generating pseudonyms
-
-    idis_username = "SVC1234"  # use this to identify with IDIS web API
-    idis_token = "a_token"
-
-    idis_web_api_server_url = (
-        "https://umcradanonp11.umcn.nl/t01"  # Talk to IDIS through this
-    )
-    idis_web_api_server_name = "t01"  # Name to use in log messages
-
-    records_db_url = f"sqlite:///{stages_base_path / 'records_db.sqlite'}"
-
-    output_base_path = Path(r"\\server\path")  # let IDIS write all data here
-
-    # init #
-    stages_base_path.mkdir(parents=True, exist_ok=True)  # assert base dir exists
-
-    # Indicate which local paths correspond to which UNC paths.
-    # This makes it possible to expose local data to IDIS servers
-    unc_mapping = UNCMapping([UNCMap(local=Path("/"), unc=UNCPath(r"\\server\share"))])
-
-    # streams #
-    # the different routes data can take through the pipeline. Data will always stay
-    # inside the same stream
-    streams = [
-        Stream(
-            name="stream1",
-            output_folder=output_base_path / "stream1",
-            idis_profile_name=default_idis_profile_name,
-            pims_key=default_pims_key,
-            contact=Person(name="Sjoerd", email="mock_email"),
-        ),
-        Stream(
-            name="stream2",
-            output_folder=output_base_path / "stream2",
-            idis_profile_name=default_idis_profile_name,
-            pims_key=default_pims_key,
-            contact=Person(name="Sjoerd2", email="mock_email"),
-        ),
-    ]
-
-    # stages #
-    # data in one stream goes through one or more of these stages
-    incoming = CoolDown(
-        name="incoming",
-        path=stages_base_path / "incoming",
-        streams=streams,
-        cool_down=0,
-    )
-
-    cooled_down = Stage(
-        name="cooled_down", path=stages_base_path / "cooled_down", streams=streams
-    )
-
-    connection = IDISConnection(
-        client_tool=AnonClientTool(username=idis_username, token=idis_token),
-        servers=[
-            RemoteAnonServer(name=idis_web_api_server_name, url=idis_web_api_server_url)
-        ],
-    )
-
-    records = IDISSendRecords(session_maker=get_db_sessionmaker(records_db_url))
-
-    pending = PendingAnon(
-        name="pending",
-        path=stages_base_path / "pending",
-        streams=streams,
-        idis_connection=connection,
-        records=records,
-        unc_mapping=unc_mapping,
-    )
-
-    errored = Stage(name="errored", path=stages_base_path / "errored", streams=streams)
-
-    finished = CoolDown(
-        name="finished",
-        path=stages_base_path / "finished",
-        streams=streams,
-        cool_down=2 * 60 * 24,
-    )  # 2 days
-
-    trash = Trash(name="trash", path=stages_base_path / "trash", streams=streams)
-
-    return DefaultPipeline(
-        incoming=incoming,
-        cooled_down=cooled_down,
-        pending=pending,
-        finished=finished,
-        trash=trash,
-        errored=errored,
-    )
+class ObjectNotFound(IDISSendException):
+    pass

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from idissend.orm import PendingAnonRecord
+from idissend.orm import IDISRecord
 from idissend.persistence import get_db_sessionmaker, IDISSendRecords
 
 
@@ -25,16 +25,14 @@ def test_db(a_sqlite_url):
     last_check = datetime.now()
     last_status = 4
 
-    assert not session.query(PendingAnonRecord).all()
-    a_record = PendingAnonRecord(
-        study_id=study_id, job_id=job_id, server_name=server_name
-    )
+    assert not session.query(IDISRecord).all()
+    a_record = IDISRecord(study_id=study_id, job_id=job_id, server_name=server_name)
     session.add(a_record)
     session.commit()
     session.close()
 
     session = get_db_sessionmaker(a_sqlite_url)()
-    test = session.query(PendingAnonRecord).first()
+    test = session.query(IDISRecord).first()
     assert not test.last_check
     assert not test.last_status
 
@@ -46,7 +44,7 @@ def test_db(a_sqlite_url):
     session.close()
 
     session = get_db_sessionmaker(a_sqlite_url)()
-    test = session.query(PendingAnonRecord).first()
+    test = session.query(IDISRecord).first()
     assert test.study_id == study_id
     assert test.last_check == last_check
 

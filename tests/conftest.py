@@ -1,6 +1,7 @@
 """Conftest.py is loaded for each pytest.
 Contains fixtures shared by multiple tests.
 """
+import logging
 import shutil
 from pathlib import Path
 from typing import List
@@ -16,7 +17,8 @@ from anonapi.testresources import (
 
 from idissend.core import Stream, Stage, Study
 from idissend.persistence import IDISSendRecords, get_memory_only_sessionmaker
-from idissend.stages import CoolDown, PendingAnon, IDISConnection
+from idissend.pipeline import IDISPipeline
+from idissend.stages import CoolDown, PendingAnon, IDISConnection, Trash
 from tests import RESOURCE_PATH
 from tests.factories import StreamFactory
 
@@ -122,3 +124,35 @@ def mock_anon_client_tool(monkeypatch):
     ]
     # mock wrapper to be able to record responses
     return Mock(wraps=MockAnonClientTool(responses=some_responses))
+
+
+@pytest.fixture
+def a_pipeline(
+    an_incoming_stage, an_empty_pending_stage, an_idis_connection, tmp_path, caplog
+):
+    """A default pipeline with all-mocked connections to outside servers.
+    Integration test light. Useful for checking log messages etc.
+    """
+    # capture all logs
+    caplog.set_level(logging.DEBUG)
+
+    # make sure all stages have the same streams
+    streams = an_incoming_stage.streams
+    an_empty_pending_stage.streams = streams
+    cooled_down = Stage(
+        name="cooled_down", path=Path(tmp_path) / "cooled_down", streams=streams
+    )
+    finished = CoolDown(
+        name="finished", path=Path(tmp_path) / "finished", streams=streams, cool_down=0
+    )
+    trash = Trash(name="trash", path=Path(tmp_path) / "trash", streams=streams)
+    errored = Stage(name="errored", path=Path(tmp_path) / "errored", streams=streams)
+
+    return IDISPipeline(
+        incoming=an_incoming_stage,
+        cooled_down=cooled_down,
+        pending=an_empty_pending_stage,
+        finished=finished,
+        trash=trash,
+        errored=errored,
+    )

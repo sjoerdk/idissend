@@ -10,7 +10,7 @@ from collections import defaultdict
 from datetime import datetime
 from idissend.core import Stage, Stream, Study, PushStudyCallbackException
 from idissend.exceptions import IDISSendException
-from idissend.orm import PendingAnonRecord
+from idissend.orm import IDISRecord
 from idissend.persistence import IDISSendRecords
 from pathlib import Path
 from sqlalchemy.exc import SQLAlchemyError
@@ -97,12 +97,10 @@ class IDISConnection:
             )
 
 
-class PendingStudy(Study):
-    """A study pending anonymization. Has additional links to check its status"""
+class IDISStudy(Study):
+    """A study linked to a job on an IDIS anonymization server"""
 
-    def __init__(
-        self, study_id: str, stream: Stream, stage: Stage, record: PendingAnonRecord
-    ):
+    def __init__(self, study_id: str, stream: Stream, stage: Stage, record: IDISRecord):
         super().__init__(study_id, stream, stage)
         self.record = record
 
@@ -138,7 +136,7 @@ class PendingAnon(Stage):
 
     * Caches job status in a local db
     * Communicates with IDIS to get info if needed
-    * Returns PendingStudy objects instead of Study
+    * Returns IDISStudy objects instead of Study
     """
 
     def __init__(
@@ -174,7 +172,7 @@ class PendingAnon(Stage):
         self.records = records
         self.unc_mapping = unc_mapping
 
-    def push_study_callback(self, study: Study) -> PendingStudy:
+    def push_study_callback(self, study: Study) -> IDISStudy:
         """Creates an IDIS job for the given study
 
         Parameters
@@ -189,7 +187,7 @@ class PendingAnon(Stage):
 
         Returns
         -------
-        PendingStudy
+        IDISStudy
             The study after executing the callback
 
         """
@@ -235,8 +233,8 @@ class PendingAnon(Stage):
 
         return self.to_pending_study(study=study, record=record)
 
-    def get_all_studies(self) -> List[PendingStudy]:
-        """Returns PendingStudy objects, which hold additional info on
+    def get_all_studies(self) -> List[IDISStudy]:
+        """Returns IDISStudy objects, which hold additional info on
         IDIS job status
 
         Raises
@@ -247,23 +245,21 @@ class PendingAnon(Stage):
         studies = super().get_all_studies()
         return [self.to_pending_study(x) for x in studies]
 
-    def get_studies(self, stream: Stream) -> List[PendingStudy]:
+    def get_studies(self, stream: Stream) -> List[IDISStudy]:
         """Get all studies for the given stream"""
         return [self.to_pending_study(x) for x in super().get_studies(stream=stream)]
 
-    def to_pending_study(
-        self, study: Study, record: PendingAnonRecord = None
-    ) -> PendingStudy:
-        """Combine Study with a record, turning into PendingStudy. If record
+    def to_pending_study(self, study: Study, record: IDISRecord = None) -> IDISStudy:
+        """Combine Study with a record, turning into IDISStudy. If record
         is not given, look it up in records db
 
         Parameters
         ----------
         study: Study
-            Study object to turn onto PendingStudy
-        record: PendingStudy, optional
+            Study object to turn onto IDISStudy
+        record: IDISStudy, optional
             The record to include with this study. If not given, look for
-            record based on study path
+            record based on study id
 
         Raises
         ------
@@ -277,7 +273,7 @@ class PendingAnon(Stage):
             raise RecordNotFoundException(
                 f"{str(self)}: There is no record for {study}"
             )
-        return PendingStudy(
+        return IDISStudy(
             study_id=study.study_id,
             stream=study.stream,
             stage=study.stage,
@@ -289,7 +285,7 @@ class PendingAnon(Stage):
 
         This should not occur often but could be the result of certain crashes or if
         data has been inserted into streams from outside idissend. This is the
-        only method in this stage which does not return PendingStudy objects.
+        only method in this stage which does not return IDISStudy objects.
 
         Returns
         -------
@@ -307,7 +303,7 @@ class PendingAnon(Stage):
     def get_server(self, server_name: str) -> RemoteAnonServer:
         return self.idis_connection.get_server(server_name=server_name)
 
-    def update_records(self, studies: List[PendingStudy]) -> List[PendingStudy]:
+    def update_records(self, studies: List[IDISStudy]) -> List[IDISStudy]:
         """Contact IDIS to get updated status for all given studies
 
         Raises
@@ -329,7 +325,7 @@ class PendingAnon(Stage):
 
             # associate what you get back with studies
             for study in studies_per_server[server]:
-                # job infos might nog be in the same order, find them again
+                # job infos might not be in the same order, find them again
                 info = {x.job_id: x for x in job_infos}.get(study.job_id)
                 if not info:
                     raise IDISCommunicationException(
@@ -342,6 +338,7 @@ class PendingAnon(Stage):
         with self.records.get_session() as session:
             for study, job_info in job_info_per_study.items():
                 study.record.last_status = job_info.status
+                study.record.last_error_message = job_info.error
                 study.record.last_check = datetime.now()
                 session.add_record(study.record)
 

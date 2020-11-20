@@ -3,7 +3,7 @@ import sqlalchemy
 
 from datetime import datetime
 from idissend.exceptions import IDISSendException
-from idissend.orm import Base, PendingAnonRecord
+from idissend.orm import Base, IDISRecord
 from pathlib import Path
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy import create_engine
@@ -63,27 +63,25 @@ class IDISSendRecordsSession:
         # be done with it
         self.session.close()
 
-    def get_all(self) -> List[PendingAnonRecord]:
-        return self.session.query(PendingAnonRecord).all()
+    def get_all(self) -> List[IDISRecord]:
+        return self.session.query(IDISRecord).all()
 
-    def get_for_study_folder(self, study_folder: Path) -> Optional[PendingAnonRecord]:
+    def get_for_study_folder(self, study_folder: Path) -> Optional[IDISRecord]:
         """Get record for the given study folder. Returns None if not found"""
         raise NotImplementedError("Use get_for_study_id!")
 
-    def get_for_study_id(self, study_id: str) -> Optional[PendingAnonRecord]:
+    def get_for_study_id(self, study_id: str) -> Optional[IDISRecord]:
         """Get first record for the given study id. Returns None if not found"""
         return (
-            self.session.query(PendingAnonRecord)
-            .filter(PendingAnonRecord.study_id == study_id)
+            self.session.query(IDISRecord)
+            .filter(IDISRecord.study_id == study_id)
             .first()
         )
 
-    def get_for_job_id(self, job_id: int) -> Optional[PendingAnonRecord]:
+    def get_for_job_id(self, job_id: int) -> Optional[IDISRecord]:
         """Get record for the given job_id. Returns None if not found"""
         return (
-            self.session.query(PendingAnonRecord)
-            .filter(PendingAnonRecord.job_id == job_id)
-            .first()
+            self.session.query(IDISRecord).filter(IDISRecord.job_id == job_id).first()
         )
 
     def add(
@@ -93,14 +91,14 @@ class IDISSendRecordsSession:
         server_name: str,
         last_status: Optional[str] = None,
         last_check: Optional[datetime] = None,
-    ) -> PendingAnonRecord:
+    ) -> IDISRecord:
         """Create a records with the given parameters.
 
-        Made this instead of just using PendingAnonRecord to be explicit about
+        Made this instead of just using IDISRecord to be explicit about
         argument types and default arguments
         """
 
-        record = PendingAnonRecord(
+        record = IDISRecord(
             study_id=study_id,
             job_id=job_id,
             server_name=server_name,
@@ -110,10 +108,10 @@ class IDISSendRecordsSession:
         self.add_record(record)
         return record
 
-    def add_record(self, record: PendingAnonRecord):
+    def add_record(self, record: IDISRecord):
         self.session.add(record)
 
-    def delete(self, record: PendingAnonRecord):
+    def delete(self, record: IDISRecord):
         self.session.delete(record)
 
 

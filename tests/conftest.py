@@ -117,10 +117,12 @@ def mock_anon_client_tool(monkeypatch):
     """An anonymization API client tool that does not hit the server but returns
     some example responses instead. Also records calls
     """
+
+    # force sequence to be able to be able to assert job ids in tests
     some_responses = [
-        JobInfoFactory(status=JobStatus.DONE),
-        JobInfoFactory(status=JobStatus.ERROR),
-        JobInfoFactory(status=JobStatus.INACTIVE),
+        JobInfoFactory(status=JobStatus.DONE, __sequence=0),
+        JobInfoFactory(status=JobStatus.ERROR, __sequence=1),
+        JobInfoFactory(status=JobStatus.INACTIVE, __sequence=2),
     ]
     # mock wrapper to be able to record responses
     return Mock(wraps=MockAnonClientTool(responses=some_responses))

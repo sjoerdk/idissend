@@ -95,8 +95,10 @@ class IDISAdmin(Admin):
             Record for each study id found. If not found, study id will be skipped
 
         """
-        with self.pipeline.pending.records.get_session() as session:
-            return [session.get_for_study_id(x) for x in study_ids]
+
+        return self.pipeline.get_idis_records(
+            self.pipeline.get_studies(study_ids=study_ids)
+        )
 
     def get_job_ids(self, study_ids: List[str]) -> List[str]:
         """Find the idis job id for each given study

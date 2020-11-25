@@ -11,10 +11,10 @@ from anonapi.responses import JobStatus
 from collections import Counter
 from idissend.core import Stage, Study, random_string
 from idissend.exceptions import IDISSendException
+from idissend.orm import IDISRecord
 from idissend.stages import (
     CoolDown,
     PendingAnon,
-    IDISStudy,
     RecordNotFoundException,
     Trash,
 )
@@ -28,10 +28,11 @@ class Pipeline:
 
     Responsibilities
     ----------------
-    Pipeline does:
+    Pipeline can:
     * Inspect stages, check studies in it
     * Push studies between stages if needed
     * log errors raised by stages, but not necessarily catch
+    * Offer additional functionality that uses one or more stages
 
     Pipeline does NOT:
     * Handle any actual files (this is up to the stage)
@@ -78,7 +79,7 @@ class Pipeline:
         ObjectNotFound
             If any study can be found
         """
-        to_find = study_ids
+        to_find = study_ids.copy()
         study_iter = self.get_study_iter()
         found = []
         try:
@@ -112,7 +113,7 @@ class Pipeline:
 
 class IDISPipeline(Pipeline):
     """Standard version of a idissend pipeline: data comes in, is exposed to IDIS for
-    anonymization, then ends up in completed. There are trash and errorred stages to
+    anonymization, then ends up in completed. There are trash and errored stages to
     hold studies if needed
     """
 
@@ -165,7 +166,7 @@ class IDISPipeline(Pipeline):
 
         self.logger.info("Running once")
 
-        studies = self.get_pending_studies()
+        studies = self.pending.get_all_studies()
 
         self.update_idis_status(studies)
 
@@ -192,41 +193,51 @@ class IDISPipeline(Pipeline):
         )
         self.trash.push_studies(self.finished.get_all_cooled_studies())
 
-    def update_idis_status(self, studies: List[IDISStudy]):
-        """Query IDIS to update the status of all given studies"""
+    def update_idis_status(self, studies: List[Study]):
+        """Query IDIS to update the status of all given studies, moves to errored
+        if things go wrong
+        """
 
         self.logger.debug(f"Updating IDIS status for {len(studies)} pending jobs")
-        self.pending.update_records(studies)
+        try:
+            updated = self.pending.update_records(studies)
+        except RecordNotFoundException as e:
+            if e.study:
+                self.logger.warning(f"{str(e)}")
+                self.errored.push_studies([e.study])
+            return
+
         self.logger.debug(
-            f"Found {str(dict(Counter([x.last_status for x in studies])))}."
+            f"Found {str(dict(Counter([record.last_status for study, record in updated])))}."
             f" Taking action based on status"
         )
         self.finished.push_studies(
-            [x for x in studies if x.last_status == JobStatus.DONE]
+            [study for study, record in updated if record.last_status == JobStatus.DONE]
         )
         self.trash.push_studies(
-            [x for x in studies if x.last_status == JobStatus.INACTIVE]
+            [
+                study
+                for study, record in updated
+                if record.last_status == JobStatus.INACTIVE
+            ]
         )
         self.errored.push_studies(
-            [x for x in studies if x.last_status == JobStatus.ERROR]
+            [
+                study
+                for study, record in updated
+                if record.last_status == JobStatus.ERROR
+            ]
         )
 
-    def get_pending_studies(self):
-        """Find all studies that have been sent to IDIS and are pending
-        anonymization. Move studies to errored if things go wrong
+    def get_idis_records(self, studies: List[Study]) -> List[IDISRecord]:
+        """Get idis record for each study in list
+
+        Raises
+        ------
+        RecordNotFoundException
+            If any study is missing a record
         """
-        try:
-            studies = self.pending.get_all_studies()
-        except RecordNotFoundException as e:
-            self.logger.warning(f"A record is missing. Original exception: {e}")
-            orphaned = self.pending.get_all_orphaned_studies()
-            self.logger.warning(
-                f" Moving {len(orphaned)} orphaned studies to errored and trying "
-                f"again. Studies moved: {[x.study_id for x in orphaned]}"
-            )
-            self.errored.push_studies(orphaned)
-            studies = self.pending.get_all_studies()
-        return studies
+        return self.pending.get_records(studies)
 
 
 class ObjectNotFound(IDISSendException):

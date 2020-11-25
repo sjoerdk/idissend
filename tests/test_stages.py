@@ -152,13 +152,14 @@ def test_pending_anon_check_status(
     studies = stage.get_all_studies()
 
     # contact IDIS to get the latest on the jobs corresponding to each study
-    studies = stage.update_records(studies)
+    stage.update_records(studies)
+    records = stage.get_records(studies)
 
     # get important groups: Studies finished, errored, still pending
-    finished = [x for x in studies if x.last_status == JobStatus.DONE]
-    errored = [x for x in studies if x.last_status == JobStatus.ERROR]
-    still_going = [x for x in studies if x.last_status == JobStatus.ACTIVE]
-    cancelled = [x for x in studies if x.last_status == JobStatus.INACTIVE]
+    finished = [x for x in records if x.last_status == JobStatus.DONE]
+    errored = [x for x in records if x.last_status == JobStatus.ERROR]
+    still_going = [x for x in records if x.last_status == JobStatus.ACTIVE]
+    cancelled = [x for x in records if x.last_status == JobStatus.INACTIVE]
 
     assert len(finished) == 1
     assert len(errored) == 1
@@ -206,9 +207,9 @@ def test_pending_anon_missing_record(
     with a_records_db.get_session() as session:
         session.delete(session.get_all()[0])
 
-    # regular get_all_studies will fail because missing record
+    # getting all records will fail
     with pytest.raises(RecordNotFoundException):
-        pending.get_all_studies()
+        pending.get_records(pending.get_all_studies())
 
     # however you can obtain the studies that cause the exception and remove them
     orphaned = pending.get_all_orphaned_studies()

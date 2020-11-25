@@ -61,9 +61,9 @@ def test_admin_move_unknown_stage(a_pipeline, an_idis_admin, caplog):
     assert len(a_pipeline.incoming.get_all_studies()) == 3
 
 
-def test_default_admin(a_pipeline, an_idis_admin, caplog):
-    a_pipeline.run_once()  # make sure some jobs have been (mock) sent to idis
+def test_default_admin(a_pipeline, an_idis_admin, mock_anon_client_tool, caplog):
 
+    a_pipeline.run_once()  # make sure some jobs have been (mock) sent to idis
     some_ids = [x.study_id for x in a_pipeline.pending.get_all_studies()][0:2]
-    assert an_idis_admin.get_job_ids(some_ids) == ["18", "19"]
+    assert an_idis_admin.get_job_ids(some_ids) == ["0", "1"]
     assert "series1" in "".join(an_idis_admin.get_error_messages(some_ids))

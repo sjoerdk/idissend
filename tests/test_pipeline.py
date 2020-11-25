@@ -55,7 +55,5 @@ def test_pipeline_record_not_found_exception(a_pipeline, caplog, a_records_db):
     # with pytest.raises(RecordNotFoundException):
     a_pipeline.run_once()  # import from incoming to pending
 
-    # now record with exception should have been moved to errored, also, the
-    # pipeline will receive one ERROR state for the remaining 2 jobs. So in
-    # total 2 jobs should have been moved to error
-    assert len(a_pipeline.errored.get_all_studies()) == 2
+    # now record with exception should have been moved to errored
+    assert len(a_pipeline.errored.get_all_studies()) == 1

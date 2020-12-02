@@ -97,8 +97,6 @@ def test_pending_anon_push_unc_paths(
     )
     an_empty_pending_stage.unc_mapping = mapping
 
-    new_study = an_empty_pending_stage.push_study(a_study, a_stream)
-
     # A job should have been made with IDIS
     assert mock_anon_client_tool.create_path_job.called
 
@@ -111,11 +109,17 @@ def test_pending_anon_push_unc_paths(
     assert UNCPath.is_unc(idis_source_path)
     assert UNCPath.is_unc(idis_destination_path)
 
-    # If a path is set that cannot be translated the push should fail
+
+def test_pending_anon_push_non_unc_paths(
+    an_empty_pending_stage, mock_anon_client_tool, a_study
+):
+    """If a path is set that cannot be translated the push should fail"""
+
     a_stream = StreamFactory(output_folder=Path(r"C:\data"))
     an_empty_pending_stage.streams.append(a_stream)
+    an_empty_pending_stage.unc_mapping = UNCMapping(maps=[])  # triggers checking
     with pytest.raises(StudyPushException) as e:
-        an_empty_pending_stage.push_study(new_study, a_stream)
+        an_empty_pending_stage.push_study(a_study, a_stream)
     assert "could not be mapped" in str(e)
 
 
@@ -217,6 +221,28 @@ def test_pending_anon_missing_record(
 
     # now the remaining studies can be obtained again
     assert len(pending.get_all_studies()) == 2
+
+
+def test_pending_anon_reset_if_existing(
+    mock_anon_client_tool, an_empty_pending_stage, a_study, a_stage
+):
+    """When an IDIS job has been created for a study before, reset that job"""
+
+    pending = an_empty_pending_stage
+    # to start, no records have been created yet
+    assert pending.get_all_records() == []
+
+    # pushing a study should create a record
+    pending.push_studies([a_study])
+    assert len(pending.get_all_records()) == 1
+
+    # study is moved to a different stage
+    a_stage.push_studies(pending.get_all_studies()[:1])
+
+    # when study is pushed back,
+    pending.push_studies(a_stage.get_all_studies()[:1])
+    # no new record should have been created
+    assert len(pending.get_all_records()) == 1
 
 
 def test_trash_stage(a_pending_anon_stage_with_data, a_trash_stage, caplog):

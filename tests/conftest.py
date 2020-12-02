@@ -10,15 +10,15 @@ from unittest.mock import Mock
 import pytest
 from anonapi.responses import JobStatus
 from anonapi.testresources import (
-    RemoteAnonServerFactory,
     JobInfoFactory,
     MockAnonClientTool,
+    RemoteAnonServerFactory,
 )
 
-from idissend.core import Stream, Stage, Study
+from idissend.core import Stage, Stream, Study
 from idissend.persistence import IDISSendRecords, get_memory_only_sessionmaker
 from idissend.pipeline import IDISPipeline
-from idissend.stages import CoolDown, PendingAnon, IDISConnection, Trash
+from idissend.stages import CoolDown, IDISConnection, PendingAnon, Trash
 from tests import RESOURCE_PATH
 from tests.factories import StreamFactory
 
@@ -124,8 +124,10 @@ def mock_anon_client_tool(monkeypatch):
         JobInfoFactory(status=JobStatus.ERROR, __sequence=1),
         JobInfoFactory(status=JobStatus.INACTIVE, __sequence=2),
     ]
-    # mock wrapper to be able to record responses
-    return Mock(wraps=MockAnonClientTool(responses=some_responses))
+    mock = Mock(wraps=MockAnonClientTool(responses=some_responses))
+    # set reset to avoid Mock.wraps triggering NotImplemented()
+    mock.reset_job = lambda server, job_id: f"Mock reset {job_id}"
+    return mock
 
 
 @pytest.fixture

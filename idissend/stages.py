@@ -139,8 +139,12 @@ class PendingAnon(Stage):
         self.records = records
         self.unc_mapping = unc_mapping
 
+    def idis_client_tool(self) -> AnonClientTool:
+        """Allows you to talk to IDIS"""
+        return self.idis_connection.client_tool
+
     def push_study_callback(self, study: Study) -> Study:
-        """Creates an IDIS job for the given study
+        """Resets existing IDIS job or creates new for the given study
 
         Parameters
         ----------
@@ -158,23 +162,68 @@ class PendingAnon(Stage):
             The study after executing the callback
 
         """
-        # Create a job
-        server = self.idis_connection.servers[0]
-        created = self.create_idis_job(server, study)
-
-        # save job id for this study to check back on later
-        try:
-            with self.records.get_session() as session:
-                session.add(
-                    study_id=study.study_id,
-                    job_id=created.job_id,
-                    server_name=server.name,
-                )
-
-        except SQLAlchemyError as e:
-            raise PushStudyCallbackException(e)
+        self.assert_active_idis_job(study)
 
         return study
+
+    def assert_active_idis_job(self, study: Study):
+        """Resets existing IDIS job or creates new for the given study
+
+        Parameters
+        ----------
+        study: Study
+            Study that was just pushed
+
+        Raises
+        ------
+        PushStudyCallbackException
+            When anything goes wrong executing this callback
+
+        Returns
+        -------
+        Study
+            The study after executing the callback
+
+        """
+        server = self.idis_connection.servers[0]
+        with self.records.get_session() as session:
+            existing_record = session.get_for_study_id(study.study_id)
+        if existing_record:
+            # an IDIS job has been created before. Reset.
+            job_id = existing_record.job_id
+            self.reset_idis_job(server=server, job_id=job_id)
+        else:
+            # No IDIS job exists. Create a new one
+            created = self.create_idis_job(server, study)
+
+            # save job id for this study to check back on later
+            try:
+                with self.records.get_session() as session:
+                    session.add(
+                        study_id=study.study_id,
+                        job_id=created.job_id,
+                        server_name=server.name,
+                    )
+            except SQLAlchemyError as e:
+                raise PushStudyCallbackException(e)
+
+    def reset_idis_job(self, server: RemoteAnonServer, job_id: str):
+        """Reset the given IDIS job on the given server
+
+        Raises
+        ------
+        PushStudyCallbackException
+            If anything goes wring communicating with IDIS
+        """
+
+        tool = self.idis_client_tool()
+        result = tool.reset_job(server=server, job_id=job_id)
+        if result.startswith("Error"):
+            # anonapi does not raise exceptions here. Working around this.
+            # Should be changed (see idissend #290)"""
+            raise PushStudyCallbackException(result)
+        else:
+            self.logger.debug(f"reset job: {result}")
 
     def create_idis_job(self, server: RemoteAnonServer, study: Study) -> JobInfo:
         """Create a job on IDIS server that will anonymize study
@@ -196,9 +245,8 @@ class PendingAnon(Stage):
             except UNCMappingException as e:
                 raise PushStudyCallbackException(e)
 
-        client = self.idis_connection.client_tool
         try:
-            job = client.create_path_job(
+            job = self.idis_client_tool().create_path_job(
                 server=server,
                 project_name=study.stream.idis_profile_name,
                 source_path=source_path,
@@ -325,6 +373,11 @@ class PendingAnon(Stage):
             )
         except ClientToolException as e:
             raise IDISCommunicationException(e)
+
+    def get_all_records(self) -> List[IDISRecord]:
+        """Return all records from local db"""
+        with self.records.get_session() as session:
+            return session.get_all()
 
 
 class Trash(Stage):

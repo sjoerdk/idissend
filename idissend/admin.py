@@ -2,6 +2,7 @@
 
 from typing import List
 
+from idissend.core import Study
 from idissend.orm import IDISRecord
 from idissend.pipeline import IDISPipeline, Pipeline
 
@@ -99,6 +100,31 @@ class IDISAdmin(Admin):
         return self.pipeline.get_idis_records(
             self.pipeline.get_studies(study_ids=study_ids)
         )
+
+    def process_with_idis(
+        self, study_ids: List[str], create_new_job=False
+    ) -> List[Study]:
+        """Move each study to pending stage and reset the existing idis job
+
+        Parameters
+        ----------
+        study_ids: List[str]
+            ids of idissend studies to process with idis. Will reset IDIS job
+            if one exists
+        create_new_job: Bool, optional
+            if True, set existing IDIS job to inactive, delete record and create
+            a new IDIS job. Defaults to False
+
+        Returns
+        -------
+        List[Study]
+        """
+        # TODO: continue, implement reset in pending stage
+        # get studies
+        #
+        # push to pending which will reset automatically
+        # if create new job, first delete existing records and then push
+        pass
 
     def get_job_ids(self, study_ids: List[str]) -> List[str]:
         """Find the idis job id for each given study

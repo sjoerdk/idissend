@@ -96,6 +96,7 @@ def test_pending_anon_push_unc_paths(
         ]
     )
     an_empty_pending_stage.unc_mapping = mapping
+    an_empty_pending_stage.push_study(a_study, a_stream)
 
     # A job should have been made with IDIS
     assert mock_anon_client_tool.create_path_job.called

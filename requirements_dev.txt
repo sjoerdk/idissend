@@ -1,4 +1,4 @@
-anonapi==1.5.5
+anonapi==2.0.1
 pip==21.0.1
 bump2version==1.0.1
 factory-boy==3.2.0

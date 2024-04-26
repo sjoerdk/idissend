@@ -80,12 +80,12 @@ class IDISConnection:
         return f"Connection with IDIS servers {[str(x) for x in self.servers]}"
 
     def get_server(self, server_name) -> RemoteAnonServer:
-        """Find the IDIS server with the given study_id
+        """Find the IDIS server with the given name
 
         Raises
         ------
         UnknownServerException
-            When no server can be found with that study_id
+            When no server can be found with that name
         """
         server = {x.name: x for x in self.servers}.get(server_name)
         if server:
@@ -205,7 +205,7 @@ class PendingAnon(Stage):
                         server_name=server.name,
                     )
             except SQLAlchemyError as e:
-                raise PushStudyCallbackException(e)
+                raise PushStudyCallbackException(e) from e
 
     def reset_idis_job(self, server: RemoteAnonServer, job_id: str):
         """Reset the given IDIS job on the given server
@@ -243,7 +243,7 @@ class PendingAnon(Stage):
                     self.unc_mapping.to_unc(x) for x in (source_path, destination_path)
                 )
             except UNCMappingException as e:
-                raise PushStudyCallbackException(e)
+                raise PushStudyCallbackException(e) from e
 
         try:
             job = self.idis_client_tool().create_path_job(
@@ -259,7 +259,7 @@ class PendingAnon(Stage):
                 f"Created IDIS job {created.job_id} on {server} " f"for {study}"
             )
         except AnonAPIException as e:
-            raise PushStudyCallbackException(e)
+            raise PushStudyCallbackException(e) from e
         return created
 
     def get_records(self, studies: List[Study]) -> List[IDISRecord]:
@@ -343,11 +343,11 @@ class PendingAnon(Stage):
                 record = record_ids[study.study_id]
                 try:
                     job_info = job_info_ids[record.job_id]
-                except KeyError:
+                except KeyError as e:
                     raise IDISCommunicationException(
                         f"{study} is associated with IDIS job {record.job_id}, but "
                         f"IDIS server did not return any info for this job"
-                    )
+                    ) from e
 
                 record.last_status = job_info.status
                 record.last_error_message = job_info.error
@@ -372,7 +372,7 @@ class PendingAnon(Stage):
                 server=server, job_ids=list(job_ids)
             )
         except ClientToolException as e:
-            raise IDISCommunicationException(e)
+            raise IDISCommunicationException(e) from e
 
     def get_all_records(self) -> List[IDISRecord]:
         """Return all records from local db"""

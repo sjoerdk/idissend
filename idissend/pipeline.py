@@ -57,10 +57,10 @@ class Pipeline:
         """
         try:
             return next(stage for stage in self.stages if stage.name == name)
-        except StopIteration:
+        except StopIteration as e:
             raise ObjectNotFound(
                 f"Stage '{name}' not found in " f"{[x.name for x in self.stages]}"
-            )
+            ) from e
 
     def get_study_iter(self) -> Iterator[Study]:
         """Iterates through each study in this pipeline"""
@@ -88,8 +88,8 @@ class Pipeline:
                 if study.study_id in to_find:
                     found.append(study)
                     to_find.remove(study.study_id)
-        except StopIteration:
-            raise ObjectNotFound(f"Studies '{to_find}' not found in pipeline")
+        except StopIteration as e:
+            raise ObjectNotFound(f"Studies '{to_find}' not found in pipeline") from e
 
         return found
 
@@ -214,7 +214,7 @@ class IDISPipeline(Pipeline):
         self.finished.push_studies(
             [study for study, record in updated if record.last_status == JobStatus.DONE]
         )
-        self.trash.push_studies(
+        self.errored.push_studies(
             [
                 study
                 for study, record in updated
